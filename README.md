@@ -34,6 +34,16 @@ Ceny są orientacyjne. Żeby je zaktualizować, zmień pole `price` w `js/data.j
 Aplikacja ma też ok. 720 przepisów z [aniagotuje.pl](https://aniagotuje.pl), **wyłącznie na własny użytek**. Repozytorium jest prywatne i tak powinno zostać: nie publikuj tej wersji (np. przez GitHub Pages), bo przepisy są własnością autorki.
 
 - `tools/fetch_aniagotuje.py`: pobiera przepisy do `data/aniagotuje-raw.json` (wznawia przerwane pobieranie).
-- `tools/build-ania.mjs`: zamienia je na `js/recipes-ania.js`. Składniki z tekstu („2 ząbki czosnku”, „pół szklanki mleka”) są przeliczane na produkty z cennika. Przepisy z nierozpoznanym składnikiem i same dodatki (surówki, frytki) są pomijane. `--report` pokazuje nierozpoznane składniki, `--debug="Nazwa"` rozbiór jednego przepisu.
+- `tools/build-recipes.mjs ania`: zamienia je na `js/recipes-ania.js`. Składniki z tekstu („2 ząbki czosnku”, „pół szklanki mleka”) są przeliczane na produkty z cennika. Przepisy z nierozpoznanym składnikiem i same dodatki (surówki, frytki) są pomijane. `--report` pokazuje nierozpoznane składniki, `--debug="Nazwa"` rozbiór jednego przepisu.
 
 Ilości są przybliżone. Przy gotowaniu korzystaj z oryginału, do którego link jest przy każdym przepisie.
+
+## Przepisy z kuchnialidla.pl (prywatnie)
+
+Ok. 2500 dań z [kuchnialidla.pl](https://kuchnialidla.pl), na tych samych zasadach co przepisy Ani: w aplikacji są tylko nazwa, składniki z ilościami (do listy zakupów), wartości odżywcze i link do oryginału.
+
+- `tools/fetch_kuchnialidla.py`: pobiera dane do `data/kuchnialidla-raw.json`.
+- `node tools/build-recipes.mjs [ania|lidl]`: buduje `js/recipes-ania.js` i `js/recipes-lidl.js`.
+- `node tools/build-single.mjs plik.html`: składa całą aplikację w jeden plik do otwarcia na telefonie.
+
+Lidl nie oznacza diet, więc „wege” i „wegańskie” wyliczamy ze składników, a „bez glutenu” nie oznaczamy wcale.

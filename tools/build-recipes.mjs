@@ -25,13 +25,14 @@ const MAP_SRC = [
   [/jogurt\w*|skyr/, 'jogurt'],
   [/kefir\w*|maślank\w*/, 'kefir'],
   [/mleko\b|mleka\b|mlekiem\b|mleku\b/, 'mleko'],
+  [/karczoch\w*|suszon\w* pomidor\w*/, 'oliwki'],
   [/mozzarell\w*|burrat\w*/, 'mozzarella'],
   [/parmezan\w*|grana padano|pecorino/, 'parmezan'],
   [/fet(a|y|ą|ę)\b|ser\w* sałatkow\w*|bałkańsk\w*|halloumi|ser\w* kozi\w*/, 'feta'],
   [/mascarpone|serek wiejsk\w*|serka wiejsk\w*|ricott\w*|serek śmietankow\w*|serka śmietankow\w*|twarożek\w* kanapk/, 'serekWiejski'],
   [/twaróg\w*|twarog\w*|twarożk\w*|twarożek/, 'twarog'],
   [/pleśniow\w*|camembert|brie|gorgonzol\w*|lazur/, 'serPlesniowy'],
-  [/\bser\w*\b|gouda|edam\w*|cheddar\w*|ementaler\w*|gouda/, 'ser'],
+  [/\bser(?!c)\w*\b|gouda|edam\w*|cheddar\w*|ementaler\w*|gouda/, 'ser'],
   [/jaj(ko|ka|ek|kiem|kami|ka)?\b|jajecz\w*|żółt\w*|białk\w* jaj|białka\b/, 'jajka'],
   [/tofu|tufu|kotlet\w* sojow\w*|granulat\w* sojow\w*|tempeh/, 'tofu'],
 
@@ -191,7 +192,7 @@ function quantity(line, id) {
     const mm = re.exec(line);
     if (!mm) continue;
     // Liczba tuż przed miarą („2 łyżki”, „pół szklanki”), a nie pierwsza w linii.
-    const before = line.slice(Math.max(0, mm.index - 25), mm.index).split(/ - |,/).pop();
+    const before = line.slice(Math.max(0, mm.index - 25), mm.index).split(/ - |, /).pop();
     const near = lastNumber(before);
     // Liczba musi stać przy mierze: „2 płaskie łyżki” tak, „6 połówek brzoskwiń z puszki” nie.
     const gap = near ? before.slice(near.index + near.len).trim().split(/\s+/).filter(Boolean).length : 0;
@@ -326,7 +327,7 @@ function minutesIn(step) {
 }
 
 // Czy to pełny posiłek, a nie dodatek (surówka, frytki, bulion)? Wymagamy składnika „głównego”.
-const SIDE = /^(frytki|ziemniaki|młode ziemniaki|puree|purée|buraczki|marchew|marchewka|pieczona marchew|mizeria|bulion|wywar|zakwas|sos\b|kapusta zasmażana|fasolka szparagowa|kluski śląskie|ćwikła|kopytka|pieczone ziemniaki|grzanki|dip|pesto|hummus|marynat|panierk|dressing|farsz|ciasto na|baza do)|do obiadu|purée|puree|na ciepło do|dodatek|do smarowania|do karkówki|do grilla|marynat/i;
+const SIDE = /^(frytki|ziemniaki|młode ziemniaki|puree|purée|buraczki|marchew|marchewka|pieczona marchew|mizeria|bulion|wywar|zakwas|sos\b|kapusta zasmażana|fasolka szparagowa|kluski śląskie|ćwikła|kopytka|pieczone ziemniaki|grzanki|dip|pesto|hummus|marynat|panierk|dressing|farsz|ciasto na|baza do)|do obiadu|purée|puree|(^|\s)(chleb|chlebek|chlebki|bułka|bułki|bułeczki|brioszki|brioszka|rogaliki|drożdżówki)(\s|$)|obwarzan|^surówk|^mizeri|chałk|^ciasto|^babka|^sernik|^tart(a|y) na słodko|bagietk|^precl|^precel|^rogal|focacci|ciabatt|bajgl|^podpłomyk|^grzank|^tost\w* z masłem|na ciepło do|dodatek|do smarowania|do karkówki|do grilla|marynat/i;
 const MAIN = {
   obiad: { any: ['jajka', 'ser', 'twarog', 'feta', 'mozzarella', 'parmezan', 'tofu', 'fasola', 'fasolaBiala', 'ciecierzyca', 'soczewica', 'makaron', 'spaghetti', 'ryz', 'kasza', 'kaszaJaglana', 'peczak', 'kuskus', 'bulgur', 'tortilla', 'ciastoFrancuskie', 'bulki', 'chleb', 'serekWiejski'], min: { maka: 150, ziemniaki: 500, groszek: 300 } },
   sniadanie: { any: ['jajka', 'ser', 'twarog', 'feta', 'mozzarella', 'tofu', 'platki', 'chleb', 'bulki', 'tortilla', 'jogurt', 'serekWiejski', 'kasza', 'kaszaJaglana', 'ryz', 'maka', 'kefir', 'ciecierzyca', 'fasola'], min: { mleko: 300 } },

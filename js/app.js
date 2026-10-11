@@ -1,12 +1,12 @@
 import { INGREDIENTS, CATEGORIES, TAG_LABELS } from './data.js';
 import {
-  ALL_RECIPES, siteOf, SITES, recipeById, scaled, nutrition, dayNutrition, generatePlan, MEAL_SHARE, shoppingList, swapOptions, costPerPortion, cookDays,
+  ALL_RECIPES, siteOf, SITES, EFFORT, buyId, avoidStems, containsAvoided, recipeTime, recipeById, scaled, nutrition, dayNutrition, generatePlan, MEAL_SHARE, shoppingList, swapOptions, costPerPortion, cookDays,
   fmtQty, fmtZl, round2,
 } from './planner.js';
 
 // ── Stan (zapisywany w localStorage) ──
 const KEY = 'pudelko-v1';
-const DEFAULT_SETTINGS = { budget: 50, days: 5, people: 1, breakfasts: false, diet: 'all', glutenFree: false, source: 'all', kcal: 2000 };
+const DEFAULT_SETTINGS = { budget: 50, days: 5, people: 1, breakfasts: false, diet: 'all', glutenFree: false, source: 'all', kcal: 2000, avoid: ['papryka'], lactoseFree: true, effort: 'min' };
 const state = load();
 
 function load() {
@@ -74,7 +74,7 @@ function renderTopInfo() {
 }
 
 function shopping() {
-  return shoppingList(state.plan.meals, state.plan.fridge);
+  return shoppingList(state.plan.meals, state.plan.fridge, state.plan.settings);
 }
 
 // Plan
@@ -101,6 +101,7 @@ function renderPlan() {
       </div>
       <div class="bar ${left < 0 ? 'over' : ''}"><i style="width:${pct}%"></i></div>
       <div class="muted small">Budżet ${fmtZl(s.budget)} · ok. ${fmtZl(list.total / (s.days * s.people))} na osobę dziennie</div>
+      ${prefsLine(s)}
       ${nutritionSummary(p)}
       ${left < 0 ? `<p class="notice" style="margin:12px 0 0">Nie udało się zmieścić w budżecie. To najtańszy plan, jaki da się ułożyć z tych przepisów. Spróbuj krótszego okresu, niższego celu kalorii albo wyłącz śniadania.</p>` : ''}
       <div class="row" style="margin-top:14px">
@@ -122,6 +123,14 @@ function renderPlan() {
       <button class="btn" data-action="edit">Zmień ustawienia</button>
       <button class="btn ghost" data-action="new-plan">Nowy plan</button>
     </div>`;
+}
+
+function prefsLine(s) {
+  const bits = [];
+  if (s.avoid?.length) bits.push(`bez: ${s.avoid.join(', ')}`);
+  if (s.lactoseFree) bits.push('bez laktozy');
+  if (s.effort && s.effort !== 'any') bits.push(s.effort === 'min' ? 'szybkie dania, mało gotowania' : 'dania do 75 min');
+  return bits.length ? `<div class="row" style="margin-top:8px">${bits.map((b) => `<span class="pill">${b}</span>`).join('')}</div>` : '';
 }
 
 function nutritionSummary(p) {
@@ -154,7 +163,7 @@ function dishCard(m, i) {
       <div class="emoji">${r.emoji}</div>
       <div>
         <h3>${r.name}</h3>
-        <div class="meta">${portionsTxt(m.portions)}${portionSize(m)} · ${daysRange(m.days)} · ${kcalTxt(mealNutrition(m))} · ok. ${fmtZl(costPerPortion(r) * (m.factor || 1))}/porcja</div>
+        <div class="meta">${portionsTxt(m.portions)}${portionSize(m)} · ${daysRange(m.days)} · ${kcalTxt(mealNutrition(m))} · ok. ${fmtZl(costPerPortion(r, state.plan.settings) * (m.factor || 1))}/porcja</div>
         ${tags.length ? `<div class="row" style="margin-top:6px">${tags.join('')}</div>` : ''}
         <div class="row">
           <button class="btn small" data-action="swap" data-i="${i}">Zamień</button>
@@ -185,6 +194,7 @@ function dayRow(d) {
 function renderForm() {
   const s = state.settings;
   const kcalChip = (v, label) => `<button class="chip" data-action="kcal" data-v="${v}" aria-pressed="${(s.kcal || 0) === v}">${label || `${v.toLocaleString('pl-PL')} kcal`}</button>`;
+  const effortChip = (v, label) => `<button type="button" class="chip" data-action="effort" data-v="${v}" aria-pressed="${(s.effort || 'any') === v}">${label}</button>`;
   const srcChip = (v, label) => `<button class="chip" data-action="source" data-v="${v}" aria-pressed="${s.source === v}">${label}</button>`;
   const dietChip = (v, label) => `<button class="chip" data-action="diet" data-v="${v}" aria-pressed="${s.diet === v}">${label}</button>`;
   return `
@@ -211,6 +221,23 @@ function renderForm() {
         <div class="chips">${dietChip('all', 'Wszystko')}${dietChip('wege', 'Wege')}${dietChip('wegan', 'Wegańskie')}</div>
       </div>
       <div class="field">
+        <label class="label" for="avoid-q" style="display:block;font-weight:600;margin-bottom:6px">Czego nie jesz?</label>
+        <div class="chips" id="avoid-list" style="margin-bottom:8px">${(s.avoid || []).map((t) => `<button type="button" class="chip" aria-pressed="true" data-action="avoid-del" data-v="${t}" aria-label="Usuń: ${t}">${t} ✕</button>`).join('')}</div>
+        <div class="row" style="flex-wrap:nowrap">
+          <input class="input" id="avoid-q" type="text" autocomplete="off" enterkeyhint="done" placeholder="np. grzyby, cebula, orzechy" style="flex:1">
+          <button type="button" class="btn" data-action="avoid-add">Dodaj</button>
+        </div>
+        <p class="muted small" style="margin:6px 0 0">Pomijamy dania z tym składnikiem, także w przyprawach. „Papryka” wyklucza też chili i ostre sosy paprykowe.</p>
+      </div>
+      <div class="field">
+        <label class="switch"><span>Bez laktozy<br><span class="muted small">mleko bez laktozy lub roślinne, jogurt, śmietana i twaróg bez laktozy</span></span><input type="checkbox" name="lactoseFree" ${s.lactoseFree ? 'checked' : ''}></label>
+      </div>
+      <div class="field">
+        <div class="label">Ile czasu na gotowanie?</div>
+        <div class="chips">${effortChip('min', 'Minimum')}${effortChip('normal', 'Normalnie')}${effortChip('any', 'Lubię gotować')}</div>
+        <p class="muted small" style="margin:6px 0 0">${{ min: 'Obiady do 40 min, bez smażenia partiami i ciasta drożdżowego, śniadania do 15 min. Mniej różnych dań, więc gotujesz rzadziej.', normal: 'Obiady do 75 min, śniadania do 30 min.', any: 'Bez limitu czasu.' }[s.effort || 'any']}</p>
+      </div>
+      <div class="field">
         <div class="label">Ile kalorii dziennie na osobę?</div>
         <div class="chips">${kcalChip(1600)}${kcalChip(2000)}${kcalChip(2500)}${kcalChip(0, 'Nie licz')}</div>
         <p class="muted small" style="margin:6px 0 0">Porcje obiadu dobierzemy na ok. 40% tej wartości, śniadania na 25%. Więcej jedzenia to większe zakupy.</p>
@@ -230,6 +257,13 @@ function renderForm() {
     <p class="muted small">Bez konta, bez reklam, działa offline. Ceny są orientacyjne (tani dyskont).</p>`;
 }
 
+function addAvoid(text) {
+  const t = (text || '').trim().toLowerCase();
+  if (!t) return;
+  const list = state.settings.avoid || [];
+  if (!list.includes(t)) state.settings.avoid = [...list, t];
+}
+
 function readForm() {
   const f = document.getElementById('plan-form');
   if (!f) return;
@@ -237,6 +271,8 @@ function readForm() {
   if (budget > 0) state.settings.budget = budget;
   state.settings.glutenFree = f.glutenFree.checked;
   state.settings.breakfasts = f.breakfasts.checked;
+  state.settings.lactoseFree = f.lactoseFree.checked;
+  addAvoid(f.querySelector('#avoid-q')?.value);
 }
 
 function makePlan() {
@@ -328,7 +364,6 @@ function renderCooking() {
     }).join('')}`;
 }
 
-const recipeTime = (r) => r.totalTime || (r.steps || []).reduce((a, s) => a + s[1], 0) || 45;
 const totalTime = (m) => recipeTime(recipeById[m.recipeId]);
 const kcalTxt = (n) => `${n.kcal.toLocaleString('pl-PL')} kcal`;
 const aniaBtn = (r, cls = 'btn small') => `<a class="${cls}" href="${r.source}" target="_blank" rel="noopener">${SITES[siteOf(r)].link} ↗</a>`;
@@ -351,7 +386,7 @@ function cookCard({ m, b, bi }) {
           ${b.freeze ? `<div class="meta">❄️ ${portionsTxt(b.days.filter((d) => d + 1 > r.keeps).length * state.plan.settings.people)} od razu do zamrażarki</div>` : ''}
         </div>
       </div>
-      <ul class="ing-list">${Object.entries(r.ing).map(([id, q]) => `<li>${INGREDIENTS[id].name}${INGREDIENTS[id].unit === 'szczypta' ? '' : ` — ${fmtQty(scaled(id, q, f), INGREDIENTS[id].unit)}`}</li>`).join('')}</ul>
+      <ul class="ing-list">${Object.entries(r.ing).map(([id, q]) => `<li>${INGREDIENTS[buyId(id, state.plan.settings)].name}${INGREDIENTS[id].unit === 'szczypta' ? '' : ` — ${fmtQty(scaled(id, q, f), INGREDIENTS[id].unit)}`}</li>`).join('')}</ul>
       ${r.source ? `<div class="row" style="margin-top:10px">${aniaBtn(r)}
         <label class="row small" style="gap:6px"><input type="checkbox" data-action="step-done" data-k="${key}:all" ${cooked ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--ok)"> Ugotowane</label></div>` : ''}
       <ol class="steps">${steps.map(([txt, min], i) => {
@@ -468,8 +503,10 @@ function recipeList() {
   const f = state.recipeFilter;
   const src = state.recipeSource;
   const q = norm(state.recipeQuery.trim());
-  const base = ALL_RECIPES.filter((r) =>
-    (r.type === f || r.tags.includes(f)) && (src === 'all' || siteOf(r) === src));
+  const stems = avoidStems(state.settings.avoid);
+  const all = ALL_RECIPES.filter((r) => (r.type === f || r.tags.includes(f)) && (src === 'all' || siteOf(r) === src));
+  const base = all.filter((r) => !containsAvoided(r, stems));
+  const hidden = all.length - base.length;
   // Najpierw trafienia w nazwie dania, potem dania z takim składnikiem.
   const list = !q ? base : [
     ...base.filter((r) => norm(r.name).includes(q)),
@@ -477,11 +514,11 @@ function recipeList() {
   ];
   const shown = list.slice(0, state.recipeLimit);
   return `
-    <p class="muted small">${list.length} ${plural(list.length, 'przepis', 'przepisy', 'przepisów')}</p>
+    <p class="muted small">${list.length} ${plural(list.length, 'przepis', 'przepisy', 'przepisów')}${hidden ? ` · ukryto ${hidden} z produktami, których nie jesz (${state.settings.avoid.join(', ')})` : ''}</p>
     ${shown.map((r) => `
       <button class="option" data-action="recipe" data-id="${r.id}">
         <span class="emoji">${r.emoji}</span>
-        <span><strong>${r.name}</strong><br><span class="muted small">ok. ${fmtZl(costPerPortion(r))}/porcja · ${kcalTxt(nutrition(r))} · ${minTxt(recipeTime(r))}${siteTag(r)}</span></span>
+        <span><strong>${r.name}</strong><br><span class="muted small">ok. ${fmtZl(costPerPortion(r, state.settings))}/porcja · ${kcalTxt(nutrition(r))} · ${minTxt(recipeTime(r))}${siteTag(r)}</span></span>
         <span></span>
       </button>`).join('')}
     ${list.length > shown.length ? `<button class="btn block" data-action="more">Pokaż więcej (${list.length - shown.length})</button>` : ''}`;
@@ -494,12 +531,12 @@ function recipeBody(r) {
     ${r.desc ? `<p>${r.desc}</p>` : ''}
     <div class="row" style="margin-bottom:10px">
       <span class="pill accent">${kcalTxt(n)} · ${n.protein} g białka / porcja</span>
-      <span class="pill">ok. ${fmtZl(costPerPortion(r))}/porcja</span>
+      <span class="pill">ok. ${fmtZl(costPerPortion(r, state.settings))}/porcja</span>
       <span class="pill">${daysTxt(r.keeps)} w lodówce${r.freezes ? ', mrozi się' : ''}</span>
       ${r.tags.map((t) => `<span class="pill">${TAG_LABELS[t]}</span>`).join('')}
     </div>
     <strong class="small">${r.source ? 'Zakupy' : 'Składniki'} na ${portionsTxt(r.serves)}</strong>
-    <ul class="ing-list">${Object.entries(r.ing).map(([id, q]) => `<li>${INGREDIENTS[id].name}${INGREDIENTS[id].unit === 'szczypta' ? '' : ` — ${fmtQty(q, INGREDIENTS[id].unit)}`}</li>`).join('')}</ul>
+    <ul class="ing-list">${Object.entries(r.ing).map(([id, q]) => `<li>${INGREDIENTS[buyId(id, state.settings)].name}${INGREDIENTS[id].unit === 'szczypta' ? '' : ` — ${fmtQty(q, INGREDIENTS[id].unit)}`}</li>`).join('')}</ul>
     ${r.source ? '<p class="muted small" style="margin-top:8px">Ilości przeliczone na produkty ze sklepu, do listy zakupów. Przyprawy, olej i sposób przygotowania znajdziesz w oryginale.</p>' : ''}
     ${r.steps ? `<ol style="padding-left:20px;margin:10px 0 0">${r.steps.map(([t, m]) => `<li style="margin-bottom:6px">${t} <span class="muted small">(${m} min)</span></li>`).join('')}</ol>` : ''}`;
 }
@@ -527,7 +564,7 @@ function openSwap(i) {
       const d = round2(o.cost - base);
       return `<button class="option" data-action="do-swap" data-i="${i}" data-id="${o.recipe.id}">
         <span class="emoji">${o.recipe.emoji}</span>
-        <span><strong>${o.recipe.name}</strong><br><span class="muted small">${o.recipe.source ? `${SITES[siteOf(o.recipe)].label} · ` : ''}${kcalTxt(nutrition(o.recipe))} · ok. ${fmtZl(costPerPortion(o.recipe))}/porcja</span></span>
+        <span><strong>${o.recipe.name}</strong><br><span class="muted small">${o.recipe.source ? `${SITES[siteOf(o.recipe)].label} · ` : ''}${kcalTxt(nutrition(o.recipe))} · ${minTxt(recipeTime(o.recipe))} · ok. ${fmtZl(costPerPortion(o.recipe, p.settings))}/porcja</span></span>
         <span class="diff ${d < 0 ? 'cheaper' : d > 0 ? 'pricier' : ''}">${d === 0 ? '±0 zł' : `${d > 0 ? '+' : '−'}${fmtZl(Math.abs(d))}`}</span>
       </button>`;
     }).join('') : '<p>Brak innych przepisów pasujących do Twojej diety.</p>'}`);
@@ -597,6 +634,9 @@ document.addEventListener('click', async (e) => {
     }
     case 'diet': readForm(); s.diet = el.dataset.v; break;
     case 'source': readForm(); s.source = el.dataset.v; break;
+    case 'effort': readForm(); s.effort = el.dataset.v; break;
+    case 'avoid-add': readForm(); break;
+    case 'avoid-del': readForm(); s.avoid = (s.avoid || []).filter((t) => t !== el.dataset.v); break;
     case 'kcal': readForm(); s.kcal = +el.dataset.v; break;
     case 'rsource': state.recipeSource = el.dataset.v; state.recipeLimit = 40; break;
     case 'more': state.recipeLimit += 40; break;
@@ -665,6 +705,16 @@ document.addEventListener('submit', (e) => {
     return;
   }
   route();
+});
+
+// Enter w polu „Czego nie jesz?” dodaje produkt zamiast od razu układać plan.
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' || e.target.id !== 'avoid-q') return;
+  e.preventDefault();
+  readForm();
+  save();
+  route();
+  document.getElementById('avoid-q')?.focus();
 });
 
 let searchTimer;

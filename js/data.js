@@ -151,17 +151,35 @@ export const INGREDIENTS = {
 
 // Każdy przepis: składniki na `serves` porcji, kroki [opis, minuty], `keeps` = ile dni wytrzyma w lodówce.
 // tags: wege (bez mięsa), wegan (bez produktów odzwierzęcych), bezgl (bez glutenu)
+// Wersje bez laktozy: przy włączonym „Bez laktozy” lista zakupów bierze je zamiast zwykłych.
+// Sery dojrzewające (gouda, parmezan) i masło mają śladowe ilości laktozy, więc zostają.
+const LF = (base, name, price) => ({ ...INGREDIENTS[base], name, price });
+Object.assign(INGREDIENTS, {
+  mlekoBL: LF('mleko', 'Mleko bez laktozy / napój roślinny', 4.79),
+  jogurtBL: LF('jogurt', 'Jogurt naturalny bez laktozy', 3.99),
+  smietanaBL: LF('smietana', 'Śmietana 18% bez laktozy', 4.49),
+  smietankaBL: LF('smietanka', 'Śmietanka 30% bez laktozy', 5.49),
+  kefirBL: LF('kefir', 'Kefir bez laktozy', 5.49),
+  twarogBL: LF('twarog', 'Twaróg bez laktozy', 5.99),
+  serekWiejskiBL: LF('serekWiejski', 'Serek wiejski bez laktozy', 4.49),
+  mozzarellaBL: LF('mozzarella', 'Mozzarella bez laktozy', 4.49),
+});
+export const LACTOSE_FREE = {
+  mleko: 'mlekoBL', jogurt: 'jogurtBL', smietana: 'smietanaBL', smietanka: 'smietankaBL',
+  kefir: 'kefirBL', twarog: 'twarogBL', serekWiejski: 'serekWiejskiBL', mozzarella: 'mozzarellaBL',
+};
+
 export const RECIPES = [
   // ── Obiady ──
   {
-    id: 'chili', name: 'Chili con carne z ryżem', type: 'obiad', emoji: '🌶️', serves: 4, keeps: 4, freezes: true,
+    id: 'chili', words: 'papryka mielona kmin chili', name: 'Chili con carne z ryżem', type: 'obiad', emoji: '🌶️', serves: 4, keeps: 4, freezes: true,
     desc: 'Mięso, fasola i pomidory w jednym garnku. Następnego dnia smakuje jeszcze lepiej.',
     tags: ['bezgl'],
     ing: { mielone: 500, fasola: 400, pomidory: 400, kukurydza: 170, cebula: 1, czosnek: 0.25, papryka: 1, ryz: 300, olej: 20, przyprawy: 1 },
     steps: [['Ugotuj ryż.', 15], ['Podsmaż cebulę i czosnek, dodaj mięso i smaż, aż się zrumieni.', 10], ['Dodaj paprykę, pomidory, fasolę, kukurydzę, kmin i paprykę mieloną. Duś pod przykryciem.', 20], ['Rozłóż do pojemników z ryżem.', 5]],
   },
   {
-    id: 'chili-wege', name: 'Chili sin carne z ryżem', type: 'obiad', emoji: '🫘', serves: 4, keeps: 5, freezes: true,
+    id: 'chili-wege', words: 'papryka mielona kmin chili', name: 'Chili sin carne z ryżem', type: 'obiad', emoji: '🫘', serves: 4, keeps: 5, freezes: true,
     desc: 'Dwie puszki fasoli i soczewica zamiast mięsa. Tanie, sycące i wegańskie.',
     tags: ['wege', 'wegan', 'bezgl'],
     ing: { soczewica: 150, fasola: 800, pomidory: 800, cebula: 1, czosnek: 0.25, papryka: 1, ryz: 300, olej: 20, przyprawy: 1 },
@@ -203,7 +221,7 @@ export const RECIPES = [
     steps: [['Ugotuj makaron.', 10], ['Rozmroź szpinak na patelni z czosnkiem.', 8], ['Dodaj śmietanę i połowę pokruszonej fety.', 3], ['Wymieszaj z makaronem, rozłóż, posyp resztą fety.', 4]],
   },
   {
-    id: 'udka', name: 'Pieczone udka z ziemniakami', type: 'obiad', emoji: '🍗', serves: 4, keeps: 4,
+    id: 'udka', words: 'papryka mielona', name: 'Pieczone udka z ziemniakami', type: 'obiad', emoji: '🍗', serves: 4, keeps: 4,
     desc: 'Wszystko na jednej blasze. Ty kroisz, piekarnik robi resztę.',
     tags: ['bezgl'],
     ing: { udka: 1000, ziemniaki: 1200, marchew: 400, cebula: 2, olej: 40, przyprawy: 1 },
@@ -259,7 +277,7 @@ export const RECIPES = [
     steps: [['Zetrzyj ziemniaki i cebulę, odciśnij nadmiar wody.', 15], ['Dodaj jajka, mąkę i sól.', 3], ['Smaż placki z obu stron na złoto.', 30], ['Rozłóż do pojemników, jogurt osobno.', 3]],
   },
   {
-    id: 'burrito', name: 'Burrito z kurczakiem i fasolą', type: 'obiad', emoji: '🌯', serves: 3, keeps: 3, freezes: true,
+    id: 'burrito', words: 'papryka mielona kmin', name: 'Burrito z kurczakiem i fasolą', type: 'obiad', emoji: '🌯', serves: 3, keeps: 3, freezes: true,
     desc: 'Zawijasz, zawijasz w folię i masz obiad do zabrania. Mrozi się świetnie.',
     tags: [],
     ing: { tortilla: 6, piers: 400, fasola: 400, kukurydza: 340, ser: 150, ryz: 150, olej: 20, przyprawy: 1 },

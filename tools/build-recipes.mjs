@@ -327,7 +327,7 @@ function minutesIn(step) {
 }
 
 // Czy to pełny posiłek, a nie dodatek (surówka, frytki, bulion)? Wymagamy składnika „głównego”.
-const SIDE = /^(frytki|ziemniaki|młode ziemniaki|puree|purée|buraczki|marchew|marchewka|pieczona marchew|mizeria|bulion|wywar|zakwas|sos\b|kapusta zasmażana|fasolka szparagowa|kluski śląskie|ćwikła|kopytka|pieczone ziemniaki|grzanki|dip|pesto|hummus|marynat|panierk|dressing|farsz|ciasto na|baza do)|do obiadu|purée|puree|(^|\s)(chleb|chlebek|chlebki|bułka|bułki|bułeczki|brioszki|brioszka|rogaliki|drożdżówki)(\s|$)|obwarzan|^surówk|^mizeri|chałk|^ciasto|^babka|^sernik|^tart(a|y) na słodko|bagietk|^precl|^precel|^rogal|focacci|ciabatt|bajgl|^podpłomyk|^grzank|^tost\w* z masłem|na ciepło do|dodatek|do smarowania|do karkówki|do grilla|marynat/i;
+const SIDE = /^(frytki|ziemniaki|młode ziemniaki|puree|purée|buraczki|marchew|marchewka|pieczona marchew|mizeria|bulion|wywar|zakwas|sos\b|kapusta zasmażana|fasolka szparagowa|kluski śląskie|ćwikła|kopytka|pieczone ziemniaki|grzanki|dip|pesto|hummus|marynat|panierk|dressing|farsz|ciasto na|baza do)|do obiadu|purée|puree|(^|\s)(chleb|chlebek|chlebki|bułka|bułki|bułeczki|brioszki|brioszka|rogaliki|drożdżówki)(\s|$)|obwarzan|^surówk|z lodami|kruszonk|na słodko|^deser|pesto|smalec|smalczyk|^jak zrobić|^sos |sos do |pasta do |masło ziołowe|^ketchup|^majonez|^domowy ketchup|^dip |^hummus|^pasztet|^konfitur|^dżem|dulce de leche|krem karmel|^deser|^mus |^lody|^budyń|^kisiel|^galaretk|^tiramisu|^panna cotta|^sorbet|^mizeri|chałk|^ciasto|^babka|^sernik|^tart(a|y) na słodko|bagietk|^precl|^precel|^rogal|focacci|ciabatt|bajgl|^podpłomyk|^grzank|^tost\w* z masłem|na ciepło do|dodatek|do smarowania|do karkówki|do grilla|marynat/i;
 const MAIN = {
   obiad: { any: ['jajka', 'ser', 'twarog', 'feta', 'mozzarella', 'parmezan', 'tofu', 'fasola', 'fasolaBiala', 'ciecierzyca', 'soczewica', 'makaron', 'spaghetti', 'ryz', 'kasza', 'kaszaJaglana', 'peczak', 'kuskus', 'bulgur', 'tortilla', 'ciastoFrancuskie', 'bulki', 'chleb', 'serekWiejski'], min: { maka: 150, ziemniaki: 500, groszek: 300 } },
   sniadanie: { any: ['jajka', 'ser', 'twarog', 'feta', 'mozzarella', 'tofu', 'platki', 'chleb', 'bulki', 'tortilla', 'jogurt', 'serekWiejski', 'kasza', 'kaszaJaglana', 'ryz', 'maka', 'kefir', 'ciecierzyca', 'fasola'], min: { mleko: 300 } },
@@ -364,6 +364,18 @@ function portionNutrition(r, ing, mass, pantryMass, pantryKcal, serves) {
 
 // Tekst ze strony trafia do HTML aplikacji — bez znaczników.
 const clean = (t) => String(t ?? '').replace(/[<>]/g, '').replace(/&/g, '&amp;').replace(/\s+/g, ' ').trim();
+
+// Słowa ze wszystkich składników (także przypraw), bez polskich znaków — do filtra „Nie jem”
+// (np. „papryka słodka” w przyprawach) i do wyszukiwarki. Pomijamy słowa, które nic nie mówią.
+const STOP = new Set('sol soli pieprz pieprzu woda wody olej oleju oliwa oliwy swieza swiezy swieze swiezej suszona suszony suszone mielona mielony mielone duza duzy duze mala maly male sredni srednia srednie sredniej wielkosci lub oraz albo dowolny dowolna ulubiony ulubiona ulubionej opcjonalnie posiekana posiekany startej starty tarty tarta drobno gruba dojrzale dojrzaly czerwona czerwony biala bialy zielona zielony szczypta lyzka lyzki lyzeczka lyzeczki szklanka szklanki sztuka sztuki okolo bardzo przyprawy przypraw smaku dekoracji podania'.split(' '));
+const normWord = (t) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ł/g, 'l');
+function ingredientWords(r) {
+  const words = new Set();
+  for (const g of r.ingredients) for (const it of g.items) {
+    for (const w of normWord(it.name).split(/[^a-z]+/)) if (w.length >= 4 && !STOP.has(w)) words.add(w);
+  }
+  return [...words].join(' ');
+}
 
 // ── Konwersja ──
 // Każde źródło ma własne dane o kategorii, porcjach i wartościach odżywczych.
@@ -494,6 +506,7 @@ for (const key of which.length ? which : Object.keys(SOURCES)) {
       site: S.site,
       totalTime: r.totalTime,
       nutr,
+      words: ingredientWords(r),
     });
   }
   out.sort((a, b) => a.name.localeCompare(b.name, 'pl'));

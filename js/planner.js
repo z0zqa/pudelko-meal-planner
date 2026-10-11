@@ -1,4 +1,4 @@
-import { INGREDIENTS, RECIPES } from './data.js';
+import { INGREDIENTS, RECIPES, LACTOSE_FREE } from './data.js';
 import { ANIA_RECIPES } from './recipes-ania.js';
 import { LIDL_RECIPES } from './recipes-lidl.js';
 
@@ -12,7 +12,59 @@ export function round2(x) {
   return Math.round(x * 100) / 100;
 }
 
+export const norm = (t) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ł/g, 'l');
+
+// Hasła, które pociągają za sobą inne nazwy tego samego produktu.
+const AVOID_ALIASES = {
+  papryka: ['papryk', 'chili', 'chilli', 'jalapeno', 'pepperoni', 'harissa', 'ajwar', 'ajvar', 'sriracha', 'tabasco', 'piri', 'peri'],
+  laktoza: ['mleko', 'mleka', 'smietan', 'jogurt', 'kefir', 'maslank', 'twarog'],
+  orzechy: ['orzech', 'orzesz', 'migdal', 'nerkow', 'pistacj', 'laskow', 'piniow'],
+  grzyby: ['grzyb', 'pieczar', 'borowik', 'podgrzyb', 'kurk', 'boczniak', 'shiitake', 'kani', 'prawdziw', 'maslak', 'opienk', 'trufl'],
+  cebula: ['cebul', 'szalot', 'dymk', 'szczypior', 'por', 'pora', 'porem'],
+  czosnek: ['czosn'],
+  jajka: ['jaj', 'jajk', 'jajecz', 'zoltk', 'bialk'],
+  gluten: ['maka', 'maki', 'makaron', 'chleb', 'bulk', 'pszen', 'zytni', 'orkisz', 'jeczmien', 'kuskus', 'bulgur', 'tortill', 'ciasto', 'panier', 'owsian'],
+  owoce_morza: ['krewet', 'malz', 'kalmar', 'osmiornic', 'mul', 'homar', 'krab', 'surimi'],
+  wieprzowina: ['wieprz', 'schab', 'karkow', 'boczk', 'boczek', 'szynk', 'kielbas', 'salami', 'chorizo', 'baleron', 'smalec', 'slonin', 'golonk', 'zeberk', 'lopatk'],
+  ryby: ['ryb', 'losos', 'dorsz', 'tunczyk', 'sledz', 'makrel', 'pstrag', 'krewet', 'mintaj', 'anchois', 'sardyn'],
+};
+const stem = (w) => w.slice(0, Math.max(4, w.length - 2));
+export function avoidStems(terms = []) {
+  return terms.flatMap((t) => {
+    const n = norm(t.trim());
+    // Liczba mnoga i odmiana: „grzyb”, „grzybów”, „pieczarki” trafiają w tę samą grupę.
+    const key = Object.keys(AVOID_ALIASES).find((k) => k === n || stem(k) === stem(n));
+    return key ? AVOID_ALIASES[key] : [stem(n)];
+  }).filter(Boolean);
+}
+export function containsAvoided(recipe, stems) {
+  if (!stems.length) return false;
+  const words = `${recipe.words || ''} ${Object.keys(recipe.ing).map((id) => norm(INGREDIENTS[id].name)).join(' ')}`.split(/[^a-z]+/);
+  return stems.some((st) => words.some((w) => (st.length <= 3 ? w === st : w.startsWith(st))));
+}
+
+// Czas w kuchni: limit minut dla obiadu i śniadania.
+export const EFFORT = {
+  min: { label: 'Minimum', obiad: 40, sniadanie: 15 },
+  normal: { label: 'Normalnie', obiad: 75, sniadanie: 30 },
+  any: { label: 'Lubię gotować', obiad: Infinity, sniadanie: Infinity },
+};
+export const recipeTime = (r) => r.totalTime || (r.steps || []).reduce((a, x) => a + x[1], 0) || 60;
+
+// Dania, przy których stoi się przy patelni (smażenie partiami, lepienie) albo czeka na ciasto
+// drożdżowe. Czas ze strony często tego nie obejmuje, więc w trybie „Minimum” je pomijamy.
+const LABOR = /plac(ek|ki|uszk)|naleśnik|nalesnik|racuch|krokiet|pierog|pierożk|kotlet|kopytk|klusk|knedl|gofr|pancake|frytk|gołąb|golab|uszk|pyz|kluch|tortellin|ravioli|pasztecik|drożdż|drozdz|proziak|podpłomyk|wieniec|bułk|chleb|ciasto|gnocchi|własnej roboty|domow\w* makaron|lazani|lasagn|roladk|rolad/;
+
+const stemCache = new Map();
 export function fitsDiet(recipe, s) {
+  const lim = EFFORT[s.effort || 'any'];
+  if (recipeTime(recipe) > lim[recipe.type]) return false;
+  if (s.effort === 'min' && (LABOR.test(recipe.name.toLowerCase()) || /drozdz/.test(recipe.words || '') || 'drozdze' in recipe.ing)) return false;
+  if (s.avoid?.length) {
+    const key = s.avoid.join('|');
+    if (!stemCache.has(key)) stemCache.set(key, avoidStems(s.avoid));
+    if (containsAvoided(recipe, stemCache.get(key))) return false;
+  }
   if (s.diet === 'wege' && !recipe.tags.includes('wege')) return false;
   if (s.diet === 'wegan' && !recipe.tags.includes('wegan')) return false;
   if (s.glutenFree && !recipe.tags.includes('bezgl')) return false;
@@ -26,7 +78,9 @@ export function candidates(type, s) {
 }
 
 // Ile różnych dań na dany okres: obiady co ~2-3 dni, śniadania co ~4 dni.
-export function dishCount(type, days) {
+export function dishCount(type, days, effort) {
+  // Przy „Minimum” mniej różnych dań: jedno danie na 3–4 dni, czyli rzadsze gotowanie.
+  if (effort === 'min') return type === 'obiad' ? Math.min(4, Math.max(1, Math.ceil(days / 3.5))) : Math.min(3, Math.max(1, Math.ceil(days / 5)));
   if (type === 'obiad') return Math.min(6, Math.max(1, Math.ceil(days / 2.5)));
   return Math.min(4, Math.max(1, Math.ceil(days / 4)));
 }
@@ -86,18 +140,21 @@ export function scaled(id, q, factor) {
   return INGREDIENTS[id].whole ? Math.ceil(q * factor - 0.01) : q * factor;
 }
 
-export function needs(meals) {
+// Id produktu, który faktycznie kupujesz (np. mleko bez laktozy zamiast zwykłego).
+export const buyId = (id, s) => (s?.lactoseFree && LACTOSE_FREE[id]) || id;
+
+export function needs(meals, s) {
   const out = {};
   for (const m of meals) {
     const r = recipeById[m.recipeId];
     const factor = (m.portions * (m.factor || 1)) / r.serves;
-    for (const [id, q] of Object.entries(r.ing)) out[id] = (out[id] || 0) + scaled(id, q, factor);
+    for (const [id, q] of Object.entries(r.ing)) { const b = buyId(id, s); out[b] = (out[b] || 0) + scaled(id, q, factor); }
   }
   return out;
 }
 
-export function shoppingList(meals, fridge = {}) {
-  const need = needs(meals);
+export function shoppingList(meals, fridge = {}, s) {
+  const need = needs(meals, s);
   const items = [];
   const pantry = [];
   let total = 0;
@@ -121,15 +178,15 @@ export function shoppingList(meals, fridge = {}) {
   return { items, pantry, total: round2(total) };
 }
 
-export function planCost(meals, fridge) {
-  return shoppingList(meals, fridge).total;
+export function planCost(meals, fridge, s) {
+  return shoppingList(meals, fridge, s).total;
 }
 
 // Szacowany koszt porcji: cena proporcjonalna do zużytej ilości (bez zaokrąglania do opakowań).
-export function costPerPortion(recipe) {
+export function costPerPortion(recipe, s) {
   let c = 0;
   for (const [id, q] of Object.entries(recipe.ing)) {
-    const ing = INGREDIENTS[id];
+    const ing = INGREDIENTS[buyId(id, s)];
     if (!ing.pantry) c += (q / ing.pack) * ing.price;
   }
   return c / recipe.serves;
@@ -155,10 +212,10 @@ export function buildMeals(dinnerIds, breakfastIds, s) {
 export function generatePlan(s, fridge = {}, rng = Math.random, tries = 2500) {
   const dinners = candidates('obiad', s);
   const breakfasts = s.breakfasts ? candidates('sniadanie', s) : [];
-  if (!dinners.length) return { error: 'Brak przepisów pasujących do wybranej diety.' };
+  if (!dinners.length) return { error: 'Żaden obiad nie pasuje do tych ustawień. Poluzuj filtry: czas w kuchni, źródło przepisów, dietę albo listę „Czego nie jesz”.' };
 
-  const kd = Math.min(dishCount('obiad', s.days), dinners.length);
-  const kb = s.breakfasts ? Math.min(dishCount('sniadanie', s.days), breakfasts.length) : 0;
+  const kd = Math.min(dishCount('obiad', s.days, s.effort), dinners.length);
+  const kb = s.breakfasts ? Math.min(dishCount('sniadanie', s.days, s.effort), breakfasts.length) : 0;
 
   const seen = new Set();
   const results = [];
@@ -168,10 +225,18 @@ export function generatePlan(s, fridge = {}, rng = Math.random, tries = 2500) {
     const key = d.join(',') + '|' + b.join(',');
     if (seen.has(key)) continue;
     seen.add(key);
+    // Urozmaicenie: dwa obiady tego samego rodzaju (np. dwa razy naleśniki) odpadają.
+    // Rodzaj dania: ikona, a dla ogólnej ikony pierwsze słowo nazwy („Pasta z awokado…”).
+    const dup = (k) => new Set(k).size < k.length;
+    const same = (ids) => {
+      const rs = ids.map((id) => recipeById[id]);
+      return dup(rs.map((r) => r.emoji).filter((e) => e !== '🍽️')) || dup(rs.map((r) => norm(r.name).split(' ')[0]));
+    };
+    if (same(d) || same(b) || dup([...d, ...b].map((id) => norm(recipeById[id].name).split(' ')[0]))) continue;
     const meals = buildMeals(d, b, s);
-    const cost = planCost(meals, fridge);
+    const cost = planCost(meals, fridge, s);
     // Kary w rankingu: każde dodatkowe gotowanie w tygodniu i niedobór kalorii względem celu.
-    let score = cost + 5 * (cookDays(meals).length - 1);
+    let score = cost + (s.effort === 'min' ? 12 : 5) * (cookDays(meals).length - 1);
     if (s.kcal) {
       const goal = s.kcal * (MEAL_SHARE.obiad + (b.length ? MEAL_SHARE.sniadanie : 0));
       const avg = Array.from({ length: s.days }, (_, i) => dayNutrition(meals, i).kcal).reduce((a, x) => a + x, 0) / s.days;
@@ -202,7 +267,7 @@ export function swapOptions(plan, index, fridge = {}) {
     .filter((r) => !used.has(r.id))
     .map((r) => {
       const meals = replaceMeal(plan, index, r.id);
-      return { recipe: r, meals, cost: planCost(meals, fridge) };
+      return { recipe: r, meals, cost: planCost(meals, fridge, s) };
     })
     .sort((a, b) => a.cost - b.cost);
 }

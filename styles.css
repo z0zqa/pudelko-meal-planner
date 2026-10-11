@@ -20,7 +20,7 @@
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #111315;
     --surface: #1a1d1f;
     --surface-2: #24282a;
@@ -39,6 +39,24 @@
     color-scheme: dark;
   }
 }
+:root[data-theme="dark"] {
+    --bg: #111315;
+    --surface: #1a1d1f;
+    --surface-2: #24282a;
+    --text: #e7ddd2;
+    --muted: #a9aaab;
+    --line: #33373a;
+    --accent: #8fa699;
+    --accent-ink: #111315;
+    --accent-soft: #243029;
+    --ok: #8fa699;
+    --ok-soft: #243029;
+    --warn: #d9a5a7;
+    --warn-soft: #362829;
+    --rose: #c98f91;
+    --shadow: none;
+    color-scheme: dark;
+  }
 
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
@@ -60,9 +78,9 @@ p { margin: 0 0 .75rem; }
 .small { font-size: .875rem; }
 
 .top {
-  position: sticky; top: 0; z-index: 5;
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
+  padding: 10px 16px;
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);

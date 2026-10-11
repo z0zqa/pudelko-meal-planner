@@ -1,12 +1,12 @@
 import { INGREDIENTS, CATEGORIES, TAG_LABELS } from './data.js';
 import {
-  ALL_RECIPES, recipeById, scaled, nutrition, dayNutrition, generatePlan, shoppingList, swapOptions, costPerPortion, cookDays,
+  ALL_RECIPES, recipeById, scaled, nutrition, dayNutrition, generatePlan, MEAL_SHARE, shoppingList, swapOptions, costPerPortion, cookDays,
   fmtQty, fmtZl, round2,
 } from './planner.js';
 
 // ── Stan (zapisywany w localStorage) ──
 const KEY = 'pudelko-v1';
-const DEFAULT_SETTINGS = { budget: 50, days: 5, people: 1, breakfasts: false, diet: 'all', glutenFree: false, source: 'all' };
+const DEFAULT_SETTINGS = { budget: 50, days: 5, people: 1, breakfasts: false, diet: 'all', glutenFree: false, source: 'all', kcal: 2000 };
 const state = load();
 
 function load() {
@@ -128,14 +128,19 @@ function nutritionSummary(p) {
   const days = Array.from({ length: p.settings.days }, (_, d) => dayNutrition(p.meals, d));
   const avg = (k) => Math.round(days.reduce((a, n) => a + n[k], 0) / days.length);
   const what = p.meals.some((m) => m.type === 'sniadanie') ? 'śniadanie + obiad' : 'sam obiad';
+  const share = MEAL_SHARE.obiad + (p.meals.some((m) => m.type === 'sniadanie') ? MEAL_SHARE.sniadanie : 0);
   return `
     <div class="nutri">
       <div><strong>${avg('kcal').toLocaleString('pl-PL')}</strong><span>kcal dziennie</span></div>
       <div><strong>${avg('protein')} g</strong><span>białka dziennie</span></div>
       <div><strong>${(avg('kcal') * p.settings.days).toLocaleString('pl-PL')}</strong><span>kcal w planie</span></div>
     </div>
-    <div class="muted small">Na osobę, ${what}. Kolacje i przekąski dolicz osobno.</div>`;
+    <div class="muted small">Na osobę, ${what}.${p.settings.kcal ? ` Cel na te posiłki: ok. ${Math.round(p.settings.kcal * share).toLocaleString('pl-PL')} kcal (z ${p.settings.kcal.toLocaleString('pl-PL')} na cały dzień).` : ''} Kolacje i przekąski dolicz osobno.</div>`;
 }
+
+const mealNutrition = (m) => { const n = nutrition(recipeById[m.recipeId]); const f = m.factor || 1; return { kcal: Math.round(n.kcal * f), protein: Math.round(n.protein * f) }; };
+const fmtFactor = (f) => String(f).replace('.', ',');
+const portionSize = (m) => (m.factor && m.factor !== 1 ? ` po ×${fmtFactor(m.factor)}` : '');
 
 function dishCard(m, i) {
   const r = recipeById[m.recipeId];
@@ -149,7 +154,7 @@ function dishCard(m, i) {
       <div class="emoji">${r.emoji}</div>
       <div>
         <h3>${r.name}</h3>
-        <div class="meta">${portionsTxt(m.portions)} · ${daysRange(m.days)} · ${kcalTxt(nutrition(r))} · ok. ${fmtZl(costPerPortion(r))}/porcja</div>
+        <div class="meta">${portionsTxt(m.portions)}${portionSize(m)} · ${daysRange(m.days)} · ${kcalTxt(mealNutrition(m))} · ok. ${fmtZl(costPerPortion(r) * (m.factor || 1))}/porcja</div>
         ${tags.length ? `<div class="row" style="margin-top:6px">${tags.join('')}</div>` : ''}
         <div class="row">
           <button class="btn small" data-action="swap" data-i="${i}">Zamień</button>
@@ -179,6 +184,7 @@ function dayRow(d) {
 
 function renderForm() {
   const s = state.settings;
+  const kcalChip = (v, label) => `<button class="chip" data-action="kcal" data-v="${v}" aria-pressed="${(s.kcal || 0) === v}">${label || `${v.toLocaleString('pl-PL')} kcal`}</button>`;
   const srcChip = (v, label) => `<button class="chip" data-action="source" data-v="${v}" aria-pressed="${s.source === v}">${label}</button>`;
   const dietChip = (v, label) => `<button class="chip" data-action="diet" data-v="${v}" aria-pressed="${s.diet === v}">${label}</button>`;
   return `
@@ -203,6 +209,11 @@ function renderForm() {
       <div class="field">
         <div class="label">Co jesz?</div>
         <div class="chips">${dietChip('all', 'Wszystko')}${dietChip('wege', 'Wege')}${dietChip('wegan', 'Wegańskie')}</div>
+      </div>
+      <div class="field">
+        <div class="label">Ile kalorii dziennie na osobę?</div>
+        <div class="chips">${kcalChip(1600)}${kcalChip(2000)}${kcalChip(2500)}${kcalChip(0, 'Nie licz')}</div>
+        <p class="muted small" style="margin:6px 0 0">Porcje obiadu dobierzemy na ok. 40% tej wartości, śniadania na 25%. Więcej jedzenia to większe zakupy.</p>
       </div>
       <div class="field">
         <div class="label">Skąd przepisy?</div>
@@ -324,7 +335,7 @@ const aniaBtn = (r, cls = 'btn small') => `<a class="${cls}" href="${r.source}" 
 
 function cookCard({ m, b, bi }) {
   const r = recipeById[m.recipeId];
-  const f = b.portions / r.serves;
+  const f = (b.portions * (m.factor || 1)) / r.serves;
   const key = `${m.recipeId}#${bi}`;
   const steps = r.steps || [];
   const doneCount = steps.filter((_, i) => state.done[`${key}:${i}`]).length;
@@ -335,7 +346,7 @@ function cookCard({ m, b, bi }) {
         <div class="emoji">${r.emoji}</div>
         <div>
           <h3>${r.name}</h3>
-          <div class="meta">${portionsTxt(b.portions)} · na ${daysRange(b.days)} · ${steps.length ? `${doneCount}/${steps.length} kroków` : `ok. ${minTxt(recipeTime(r))}`}</div>
+          <div class="meta">${portionsTxt(b.portions)}${portionSize(m)} · na ${daysRange(b.days)} · ${steps.length ? `${doneCount}/${steps.length} kroków` : `ok. ${minTxt(recipeTime(r))}`}</div>
           ${b.freeze ? `<div class="meta">❄️ ${portionsTxt(b.days.filter((d) => d + 1 > r.keeps).length * state.plan.settings.people)} od razu do zamrażarki</div>` : ''}
         </div>
       </div>
@@ -527,6 +538,7 @@ document.addEventListener('click', async (e) => {
     }
     case 'diet': readForm(); s.diet = el.dataset.v; break;
     case 'source': readForm(); s.source = el.dataset.v; break;
+    case 'kcal': readForm(); s.kcal = +el.dataset.v; break;
     case 'rsource': state.recipeSource = el.dataset.v; state.recipeLimit = 40; break;
     case 'more': state.recipeLimit += 40; break;
     case 'reroll': makePlan(); toast('Wylosowano nowe dania'); break;
@@ -549,8 +561,9 @@ document.addEventListener('click', async (e) => {
     case 'copy-list':
       // Na telefonie otwiera menu udostępniania (np. do notatek albo komunikatora).
       if (navigator.share) {
-        try { await navigator.share({ title: 'Lista zakupów', text: listAsText() }); } catch {}
-        return;
+        try { await navigator.share({ title: 'Lista zakupów', text: listAsText() }); return; } catch (err) {
+          if (err?.name === 'AbortError') return;
+        }
       }
       try { await navigator.clipboard.writeText(listAsText()); toast('Skopiowano listę'); }
       catch { toast('Nie udało się skopiować'); }

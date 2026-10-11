@@ -37,7 +37,17 @@ function splitDays(days, k) {
 // Rozkłada dania na kolejne dni: najpierw te, które najkrócej wytrzymują w lodówce.
 // Każde danie dzieli się na partie (batches): gotujesz wszystko pierwszego dnia, a jeśli danie
 // nie dotrwa do końca, a nie da się go mrozić, kolejną partię gotujesz świeżo w trakcie tygodnia.
-export function schedule(recipeIds, type, days, people) {
+// Jaką część dziennych kalorii pokrywa posiłek.
+export const MEAL_SHARE = { obiad: 0.4, sniadanie: 0.25 };
+
+// Mnożnik porcji, żeby posiłek dał docelowe kalorie (np. 1,5 = półtorej porcji z przepisu).
+export function portionFactor(r, type, kcalTarget) {
+  if (!kcalTarget) return 1;
+  const k = nutrition(r).kcal || 1;
+  return Math.min(2.5, Math.max(0.75, Math.round(((kcalTarget * MEAL_SHARE[type]) / k) * 4) / 4));
+}
+
+export function schedule(recipeIds, type, days, people, kcalTarget) {
   const counts = splitDays(days, recipeIds.length);
   const sorted = [...recipeIds].sort((a, b) => recipeById[a].keeps - recipeById[b].keeps);
   let day = 0;
@@ -45,7 +55,8 @@ export function schedule(recipeIds, type, days, people) {
     const r = recipeById[id];
     const ds = Array.from({ length: counts[i] }, (_, j) => day + j);
     day += counts[i];
-    return { recipeId: id, type, days: ds, portions: counts[i] * people, batches: batches(r, ds, people) };
+    const factor = portionFactor(r, type, kcalTarget);
+    return { recipeId: id, type, days: ds, portions: counts[i] * people, factor, batches: batches(r, ds, people) };
   });
 }
 
@@ -76,7 +87,7 @@ export function needs(meals) {
   const out = {};
   for (const m of meals) {
     const r = recipeById[m.recipeId];
-    const factor = m.portions / r.serves;
+    const factor = (m.portions * (m.factor || 1)) / r.serves;
     for (const [id, q] of Object.entries(r.ing)) out[id] = (out[id] || 0) + scaled(id, q, factor);
   }
   return out;
@@ -131,8 +142,8 @@ function sample(arr, k, rng) {
 }
 
 export function buildMeals(dinnerIds, breakfastIds, s) {
-  const meals = schedule(dinnerIds, 'obiad', s.days, s.people);
-  if (breakfastIds.length) meals.push(...schedule(breakfastIds, 'sniadanie', s.days, s.people));
+  const meals = schedule(dinnerIds, 'obiad', s.days, s.people, s.kcal);
+  if (breakfastIds.length) meals.push(...schedule(breakfastIds, 'sniadanie', s.days, s.people, s.kcal));
   return meals;
 }
 
@@ -156,8 +167,14 @@ export function generatePlan(s, fridge = {}, rng = Math.random, tries = 2500) {
     seen.add(key);
     const meals = buildMeals(d, b, s);
     const cost = planCost(meals, fridge);
-    // Każde dodatkowe gotowanie w tygodniu to kara w rankingu — wolimy jedną sesję meal prep.
-    results.push({ meals, cost, score: cost + 5 * (cookDays(meals).length - 1) });
+    // Kary w rankingu: każde dodatkowe gotowanie w tygodniu i niedobór kalorii względem celu.
+    let score = cost + 5 * (cookDays(meals).length - 1);
+    if (s.kcal) {
+      const goal = s.kcal * (MEAL_SHARE.obiad + (b.length ? MEAL_SHARE.sniadanie : 0));
+      const avg = Array.from({ length: s.days }, (_, i) => dayNutrition(meals, i).kcal).reduce((a, x) => a + x, 0) / s.days;
+      score += Math.max(0, goal - avg) / goal * s.budget;
+    }
+    results.push({ meals, cost, score });
   }
 
   results.sort((a, b) => a.score - b.score);
@@ -218,14 +235,15 @@ export function nutrition(r) {
 
 // Suma na osobę w danym dniu planu.
 export function dayNutrition(meals, day) {
+  // Zaokrąglamy na końcu (mnożnik porcji daje ułamki).
   const out = { kcal: 0, protein: 0 };
   for (const m of meals) {
     if (!m.days.includes(day)) continue;
     const n = nutrition(recipeById[m.recipeId]);
-    out.kcal += n.kcal;
-    out.protein += n.protein;
+    out.kcal += n.kcal * (m.factor || 1);
+    out.protein += n.protein * (m.factor || 1);
   }
-  return out;
+  return { kcal: Math.round(out.kcal), protein: Math.round(out.protein) };
 }
 
 export function fmtQty(q, unit) {

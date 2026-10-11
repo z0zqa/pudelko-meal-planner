@@ -324,7 +324,7 @@ function minutesIn(step) {
 }
 
 // Czy to pełny posiłek, a nie dodatek (surówka, frytki, bulion)? Wymagamy składnika „głównego”.
-const SIDE = /^(frytki|ziemniaki|młode ziemniaki|puree|purée|buraczki|marchew|marchewka|pieczona marchew|mizeria|bulion|wywar|zakwas|sos\b|kapusta zasmażana|fasolka szparagowa|kluski śląskie|ćwikła|kopytka|pieczone ziemniaki|grzanki|dip|pesto|hummus)|do obiadu|na ciepło do|dodatek/i;
+const SIDE = /^(frytki|ziemniaki|młode ziemniaki|puree|purée|buraczki|marchew|marchewka|pieczona marchew|mizeria|bulion|wywar|zakwas|sos\b|kapusta zasmażana|fasolka szparagowa|kluski śląskie|ćwikła|kopytka|pieczone ziemniaki|grzanki|dip|pesto|hummus|marynat|panierk|dressing|farsz|ciasto na|baza do)|do obiadu|na ciepło do|dodatek|do smarowania|do karkówki|do grilla|marynat/i;
 const MAIN = {
   obiad: { any: ['jajka', 'ser', 'twarog', 'feta', 'mozzarella', 'parmezan', 'tofu', 'fasola', 'fasolaBiala', 'ciecierzyca', 'soczewica', 'makaron', 'spaghetti', 'ryz', 'kasza', 'kaszaJaglana', 'peczak', 'kuskus', 'bulgur', 'tortilla', 'ciastoFrancuskie', 'bulki', 'chleb', 'serekWiejski'], min: { maka: 150, ziemniaki: 500, groszek: 300 } },
   sniadanie: { any: ['jajka', 'ser', 'twarog', 'feta', 'mozzarella', 'tofu', 'platki', 'chleb', 'bulki', 'tortilla', 'jogurt', 'serekWiejski', 'kasza', 'kaszaJaglana', 'ryz', 'maka', 'kefir', 'ciecierzyca', 'fasola'], min: { mleko: 300 } },

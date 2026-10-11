@@ -222,3 +222,9 @@ details.recipe .body { padding: 0 16px 16px; }
 .logo { width: 26px; height: 26px; display: block; }
 .tabs a.active::before { content: ""; position: absolute; top: 0; width: 24px; height: 2px; border-radius: 2px; background: var(--accent); }
 .tabs a { position: relative; }
+
+.nutri { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0 6px; }
+.nutri > div { background: var(--surface-2); border-radius: 12px; padding: 10px; text-align: center; }
+.nutri strong { display: block; font-family: var(--serif); font-size: 1.25rem; font-weight: 600; color: var(--accent); }
+.nutri span { font-size: .75rem; color: var(--muted); }
+.day .d small.kcal { margin-top: 4px; color: var(--accent); font-weight: 600; }

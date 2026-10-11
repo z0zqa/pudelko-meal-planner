@@ -1,12 +1,12 @@
-import { INGREDIENTS, RECIPES, CATEGORIES, TAG_LABELS } from './data.js';
+import { INGREDIENTS, CATEGORIES, TAG_LABELS } from './data.js';
 import {
-  recipeById, scaled, generatePlan, shoppingList, swapOptions, costPerPortion, cookDays,
+  ALL_RECIPES, recipeById, scaled, nutrition, dayNutrition, generatePlan, shoppingList, swapOptions, costPerPortion, cookDays,
   fmtQty, fmtZl, round2,
 } from './planner.js';
 
 // ── Stan (zapisywany w localStorage) ──
 const KEY = 'pudelko-v1';
-const DEFAULT_SETTINGS = { budget: 50, days: 5, people: 1, breakfasts: false, diet: 'all', glutenFree: false };
+const DEFAULT_SETTINGS = { budget: 50, days: 5, people: 1, breakfasts: false, diet: 'all', glutenFree: false, source: 'all' };
 const state = load();
 
 function load() {
@@ -19,10 +19,13 @@ function load() {
     checked: saved.checked || {},
     done: saved.done || {},
     recipeFilter: 'obiad',
+    recipeSource: 'all',
+    recipeQuery: '',
+    recipeLimit: 40,
   };
 }
 function save() {
-  const { recipeFilter, ...rest } = state;
+  const { recipeFilter, recipeSource, recipeQuery, recipeLimit, editing, ...rest } = state;
   try { localStorage.setItem(KEY, JSON.stringify(rest)); } catch {}
 }
 
@@ -98,6 +101,7 @@ function renderPlan() {
       </div>
       <div class="bar ${left < 0 ? 'over' : ''}"><i style="width:${pct}%"></i></div>
       <div class="muted small">Budżet ${fmtZl(s.budget)} · ok. ${fmtZl(list.total / (s.days * s.people))} na osobę dziennie</div>
+      ${nutritionSummary(p)}
       ${left < 0 ? `<p class="notice" style="margin:12px 0 0">Nie udało się zmieścić w budżecie. To najtańszy plan, jaki da się ułożyć z tych przepisów. Spróbuj krótszego okresu albo wyłącz śniadania.</p>` : ''}
       <div class="row" style="margin-top:14px">
         <a class="btn primary" href="#zakupy">Lista zakupów</a>
@@ -120,6 +124,19 @@ function renderPlan() {
     </div>`;
 }
 
+function nutritionSummary(p) {
+  const days = Array.from({ length: p.settings.days }, (_, d) => dayNutrition(p.meals, d));
+  const avg = (k) => Math.round(days.reduce((a, n) => a + n[k], 0) / days.length);
+  const what = p.meals.some((m) => m.type === 'sniadanie') ? 'śniadanie + obiad' : 'sam obiad';
+  return `
+    <div class="nutri">
+      <div><strong>${avg('kcal').toLocaleString('pl-PL')}</strong><span>kcal dziennie</span></div>
+      <div><strong>${avg('protein')} g</strong><span>białka dziennie</span></div>
+      <div><strong>${(avg('kcal') * p.settings.days).toLocaleString('pl-PL')}</strong><span>kcal w planie</span></div>
+    </div>
+    <div class="muted small">Na osobę, ${what}. Kolacje i przekąski dolicz osobno.</div>`;
+}
+
 function dishCard(m, i) {
   const r = recipeById[m.recipeId];
   const p = state.plan;
@@ -132,11 +149,12 @@ function dishCard(m, i) {
       <div class="emoji">${r.emoji}</div>
       <div>
         <h3>${r.name}</h3>
-        <div class="meta">${portionsTxt(m.portions)} · ${daysRange(m.days)} · ok. ${fmtZl(costPerPortion(r))}/porcja</div>
+        <div class="meta">${portionsTxt(m.portions)} · ${daysRange(m.days)} · ${kcalTxt(nutrition(r))} · ok. ${fmtZl(costPerPortion(r))}/porcja</div>
         ${tags.length ? `<div class="row" style="margin-top:6px">${tags.join('')}</div>` : ''}
         <div class="row">
           <button class="btn small" data-action="swap" data-i="${i}">Zamień</button>
-          <button class="btn small ghost" data-action="recipe" data-id="${r.id}">Przepis</button>
+          ${r.source ? aniaBtn(r, 'btn small ghost') : `<button class="btn small ghost" data-action="recipe" data-id="${r.id}">Przepis</button>`}
+          ${r.source ? `<button class="btn small ghost" data-action="recipe" data-id="${r.id}">Składniki</button>` : ''}
         </div>
       </div>
     </article>`;
@@ -155,11 +173,13 @@ function dayRow(d) {
       items.push(`<li>${type === 'sniadanie' ? '☀️' : '🍽️'} ${r.name}${note}</li>`);
     }
   }
-  return `<div class="day"><div class="d">${dayShort(d)}<small>${dayLabel(d)}</small></div><ul>${items.join('')}</ul></div>`;
+  const n = dayNutrition(state.plan.meals, d);
+  return `<div class="day"><div class="d">${dayShort(d)}<small>${dayLabel(d)}</small><small class="kcal">${n.kcal} kcal</small></div><ul>${items.join('')}</ul></div>`;
 }
 
 function renderForm() {
   const s = state.settings;
+  const srcChip = (v, label) => `<button class="chip" data-action="source" data-v="${v}" aria-pressed="${s.source === v}">${label}</button>`;
   const dietChip = (v, label) => `<button class="chip" data-action="diet" data-v="${v}" aria-pressed="${s.diet === v}">${label}</button>`;
   return `
     <section>
@@ -183,6 +203,12 @@ function renderForm() {
       <div class="field">
         <div class="label">Co jesz?</div>
         <div class="chips">${dietChip('all', 'Wszystko')}${dietChip('wege', 'Wege')}${dietChip('wegan', 'Wegańskie')}</div>
+      </div>
+      <div class="field">
+        <div class="label">Skąd przepisy?</div>
+        <div class="chips">${srcChip('all', 'Wszystkie')}${srcChip('ania', 'Ania Gotuje')}${srcChip('own', 'Wbudowane')}</div>
+      </div>
+      <div class="field">
         <label class="switch"><span>Bez glutenu</span><input type="checkbox" name="glutenFree" ${s.glutenFree ? 'checked' : ''}></label>
         <label class="switch"><span>Planuj też śniadania</span><input type="checkbox" name="breakfasts" ${s.breakfasts ? 'checked' : ''}></label>
       </div>
@@ -231,7 +257,7 @@ function renderShopping() {
     <div class="card">
       <div class="sum"><span>Razem</span><span>${fmtZl(list.total)}</span></div>
       <div class="muted small">Zostało do kupienia: ${fmtZl(remaining)} · ${toBuy.filter((it) => !state.checked[it.id]).length} z ${toBuy.length} pozycji</div>
-      <div class="row" style="margin-top:12px"><button class="btn small" data-action="copy-list">Skopiuj listę</button></div>
+      <div class="row" style="margin-top:12px"><button class="btn small" data-action="copy-list">Wyślij / skopiuj listę</button></div>
     </div>
     ${Object.keys(CATEGORIES).filter((c) => groups[c]?.some((it) => it.packs > 0)).map((c) => `
       <section class="shop-group">
@@ -280,7 +306,7 @@ function renderCooking() {
     ${cookDays(p.meals).map((day) => {
       const tasks = [];
       p.meals.forEach((m) => m.batches.forEach((b, bi) => { if (b.cookDay === day) tasks.push({ m, b, bi }); }));
-      const times = tasks.map(({ m }) => recipeById[m.recipeId].steps.reduce((a, s) => a + s[1], 0)).sort((a, b) => b - a);
+      const times = tasks.map(({ m }) => recipeTime(recipeById[m.recipeId])).sort((a, b) => b - a);
       // Część kroków robisz równolegle, więc liczymy najdłuższe danie + połowę pozostałych.
       const est = Math.round((times[0] + times.slice(1).reduce((a, t) => a + t, 0) * 0.5) / 5) * 5;
       tasks.sort((a, b) => totalTime(b.m) - totalTime(a.m));
@@ -291,25 +317,32 @@ function renderCooking() {
     }).join('')}`;
 }
 
-const totalTime = (m) => recipeById[m.recipeId].steps.reduce((a, s) => a + s[1], 0);
+const recipeTime = (r) => r.totalTime || (r.steps || []).reduce((a, s) => a + s[1], 0) || 45;
+const totalTime = (m) => recipeTime(recipeById[m.recipeId]);
+const kcalTxt = (n) => `${n.kcal.toLocaleString('pl-PL')} kcal`;
+const aniaBtn = (r, cls = 'btn small') => `<a class="${cls}" href="${r.source}" target="_blank" rel="noopener">Przepis u Ani ↗</a>`;
 
 function cookCard({ m, b, bi }) {
   const r = recipeById[m.recipeId];
   const f = b.portions / r.serves;
   const key = `${m.recipeId}#${bi}`;
-  const doneCount = r.steps.filter((_, i) => state.done[`${key}:${i}`]).length;
+  const steps = r.steps || [];
+  const doneCount = steps.filter((_, i) => state.done[`${key}:${i}`]).length;
+  const cooked = state.done[`${key}:all`];
   return `
     <article class="card">
       <div class="dish">
         <div class="emoji">${r.emoji}</div>
         <div>
           <h3>${r.name}</h3>
-          <div class="meta">${portionsTxt(b.portions)} · na ${daysRange(b.days)} · ${doneCount}/${r.steps.length} kroków</div>
+          <div class="meta">${portionsTxt(b.portions)} · na ${daysRange(b.days)} · ${steps.length ? `${doneCount}/${steps.length} kroków` : `ok. ${minTxt(recipeTime(r))}`}</div>
           ${b.freeze ? `<div class="meta">❄️ ${portionsTxt(b.days.filter((d) => d + 1 > r.keeps).length * state.plan.settings.people)} od razu do zamrażarki</div>` : ''}
         </div>
       </div>
       <ul class="ing-list">${Object.entries(r.ing).map(([id, q]) => `<li>${INGREDIENTS[id].name}${INGREDIENTS[id].unit === 'szczypta' ? '' : ` — ${fmtQty(scaled(id, q, f), INGREDIENTS[id].unit)}`}</li>`).join('')}</ul>
-      <ol class="steps">${r.steps.map(([txt, min], i) => {
+      ${r.source ? `<div class="row" style="margin-top:10px">${aniaBtn(r)}
+        <label class="row small" style="gap:6px"><input type="checkbox" data-action="step-done" data-k="${key}:all" ${cooked ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--ok)"> Ugotowane</label></div>` : ''}
+      <ol class="steps">${steps.map(([txt, min], i) => {
         const done = state.done[`${key}:${i}`];
         return `<li class="${done ? 'done' : ''}"><input type="checkbox" data-action="step-done" data-k="${key}:${i}" ${done ? 'checked' : ''} aria-label="Krok ${i + 1}"><span>${txt}</span><span class="min">${min} min</span></li>`;
       }).join('')}</ol>
@@ -348,26 +381,57 @@ function renderFridge() {
 // Przepisy
 
 function renderRecipes() {
+  const chip = (action, cur, v, label) => `<button class="chip" data-action="${action}" data-v="${v}" aria-pressed="${cur === v}">${label}</button>`;
   const f = state.recipeFilter;
-  const chip = (v, label) => `<button class="chip" data-action="rfilter" data-v="${v}" aria-pressed="${f === v}">${label}</button>`;
-  const list = RECIPES.filter((r) => f === 'all' || r.type === f || r.tags.includes(f));
+  const src = state.recipeSource;
   return `
     <h1>Przepisy</h1>
-    <div class="chips" style="margin-bottom:14px">${chip('obiad', 'Obiady')}${chip('sniadanie', 'Śniadania')}${chip('wege', 'Wege')}${chip('wegan', 'Wegańskie')}${chip('bezgl', 'Bez glutenu')}</div>
-    ${list.map((r) => `
-      <details class="recipe" id="r-${r.id}">
-        <summary class="dish"><div class="emoji">${r.emoji}</div><div><h3>${r.name}</h3><div class="meta">ok. ${fmtZl(costPerPortion(r))}/porcja · ${minTxt(r.steps.reduce((a, s) => a + s[1], 0))} · ${daysTxt(r.keeps)} w lodówce${r.freezes ? ' · mrozi się' : ''}</div></div></summary>
-        <div class="body">${recipeBody(r)}</div>
-      </details>`).join('')}`;
+    <input class="input" type="search" id="recipe-search" placeholder="Szukaj: gulasz, kurczak, naleśniki…" value="${state.recipeQuery.replace(/"/g, '&quot;')}" aria-label="Szukaj przepisu" style="margin-bottom:10px">
+    <div class="chips" style="margin-bottom:8px">${chip('rsource', src, 'all', 'Wszystkie')}${chip('rsource', src, 'ania', 'Ania Gotuje')}${chip('rsource', src, 'own', 'Wbudowane')}</div>
+    <div class="chips" style="margin-bottom:14px">${chip('rfilter', f, 'obiad', 'Obiady')}${chip('rfilter', f, 'sniadanie', 'Śniadania')}${chip('rfilter', f, 'wege', 'Wege')}${chip('rfilter', f, 'wegan', 'Wegańskie')}${chip('rfilter', f, 'bezgl', 'Bez glutenu')}</div>
+    <div id="recipe-list">${recipeList()}</div>`;
+}
+
+const norm = (t) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ł/g, 'l');
+
+function recipeList() {
+  const f = state.recipeFilter;
+  const src = state.recipeSource;
+  const q = norm(state.recipeQuery.trim());
+  const base = ALL_RECIPES.filter((r) =>
+    (r.type === f || r.tags.includes(f)) && (src === 'all' || (src === 'ania') === !!r.source));
+  // Najpierw trafienia w nazwie dania, potem dania z takim składnikiem.
+  const list = !q ? base : [
+    ...base.filter((r) => norm(r.name).includes(q)),
+    ...base.filter((r) => !norm(r.name).includes(q) && Object.keys(r.ing).some((id) => norm(INGREDIENTS[id].name).includes(q))),
+  ];
+  const shown = list.slice(0, state.recipeLimit);
+  return `
+    <p class="muted small">${list.length} ${plural(list.length, 'przepis', 'przepisy', 'przepisów')}</p>
+    ${shown.map((r) => `
+      <button class="option" data-action="recipe" data-id="${r.id}">
+        <span class="emoji">${r.emoji}</span>
+        <span><strong>${r.name}</strong><br><span class="muted small">ok. ${fmtZl(costPerPortion(r))}/porcja · ${kcalTxt(nutrition(r))} · ${minTxt(recipeTime(r))}${r.source ? ' · Ania Gotuje' : ''}</span></span>
+        <span></span>
+      </button>`).join('')}
+    ${list.length > shown.length ? `<button class="btn block" data-action="more">Pokaż więcej (${list.length - shown.length})</button>` : ''}`;
 }
 
 function recipeBody(r) {
+  const n = nutrition(r);
   return `
-    <p>${r.desc}</p>
-    ${r.tags.length ? `<div class="row" style="margin-bottom:8px">${r.tags.map((t) => `<span class="pill">${TAG_LABELS[t]}</span>`).join('')}</div>` : ''}
-    <strong class="small">Składniki na ${portionsTxt(r.serves)}</strong>
+    ${r.source ? `<p>${aniaBtn(r, 'btn primary')}</p>` : ''}
+    ${r.desc ? `<p>${r.desc}</p>` : ''}
+    <div class="row" style="margin-bottom:10px">
+      <span class="pill accent">${kcalTxt(n)} · ${n.protein} g białka / porcja</span>
+      <span class="pill">ok. ${fmtZl(costPerPortion(r))}/porcja</span>
+      <span class="pill">${daysTxt(r.keeps)} w lodówce${r.freezes ? ', mrozi się' : ''}</span>
+      ${r.tags.map((t) => `<span class="pill">${TAG_LABELS[t]}</span>`).join('')}
+    </div>
+    <strong class="small">${r.source ? 'Zakupy' : 'Składniki'} na ${portionsTxt(r.serves)}</strong>
     <ul class="ing-list">${Object.entries(r.ing).map(([id, q]) => `<li>${INGREDIENTS[id].name}${INGREDIENTS[id].unit === 'szczypta' ? '' : ` — ${fmtQty(q, INGREDIENTS[id].unit)}`}</li>`).join('')}</ul>
-    <ol style="padding-left:20px;margin:10px 0 0">${r.steps.map(([t, m]) => `<li>${t} <span class="muted small">(${m} min)</span></li>`).join('')}</ol>`;
+    ${r.source ? '<p class="muted small" style="margin-top:8px">Ilości przeliczone na produkty ze sklepu, do listy zakupów. Przyprawy, olej i sposób przygotowania znajdziesz u Ani.</p>' : ''}
+    ${r.steps ? `<ol style="padding-left:20px;margin:10px 0 0">${r.steps.map(([t, m]) => `<li style="margin-bottom:6px">${t} <span class="muted small">(${m} min)</span></li>`).join('')}</ol>` : ''}`;
 }
 
 function emptyState(icon, text) {
@@ -389,11 +453,11 @@ function openSwap(i) {
   openSheet(`
     <div class="row spread"><h2 style="margin:0">Zamień: ${current.name}</h2><button class="icon-btn" data-action="close" aria-label="Zamknij">✕</button></div>
     <p class="muted small">Cena pokazuje, jak zmieni się koszt całych zakupów.</p>
-    ${opts.length ? opts.map((o) => {
+    ${opts.length ? opts.slice(0, 40).map((o) => {
       const d = round2(o.cost - base);
       return `<button class="option" data-action="do-swap" data-i="${i}" data-id="${o.recipe.id}">
         <span class="emoji">${o.recipe.emoji}</span>
-        <span><strong>${o.recipe.name}</strong><br><span class="muted small">${o.recipe.desc}</span></span>
+        <span><strong>${o.recipe.name}</strong><br><span class="muted small">${o.recipe.source ? 'Ania Gotuje · ' : ''}${kcalTxt(nutrition(o.recipe))} · ok. ${fmtZl(costPerPortion(o.recipe))}/porcja</span></span>
         <span class="diff ${d < 0 ? 'cheaper' : d > 0 ? 'pricier' : ''}">${d === 0 ? '±0 zł' : `${d > 0 ? '+' : '−'}${fmtZl(Math.abs(d))}`}</span>
       </button>`;
     }).join('') : '<p>Brak innych przepisów pasujących do Twojej diety.</p>'}`);
@@ -462,6 +526,9 @@ document.addEventListener('click', async (e) => {
       break;
     }
     case 'diet': readForm(); s.diet = el.dataset.v; break;
+    case 'source': readForm(); s.source = el.dataset.v; break;
+    case 'rsource': state.recipeSource = el.dataset.v; state.recipeLimit = 40; break;
+    case 'more': state.recipeLimit += 40; break;
     case 'reroll': makePlan(); toast('Wylosowano nowe dania'); break;
     case 'edit': state.settings = { ...state.plan.settings }; state.editing = true; break;
     case 'cancel-edit': state.editing = false; break;
@@ -480,12 +547,17 @@ document.addEventListener('click', async (e) => {
     case 'recipe': return openRecipe(el.dataset.id);
     case 'close': return sheet.close();
     case 'copy-list':
+      // Na telefonie otwiera menu udostępniania (np. do notatek albo komunikatora).
+      if (navigator.share) {
+        try { await navigator.share({ title: 'Lista zakupów', text: listAsText() }); } catch {}
+        return;
+      }
       try { await navigator.clipboard.writeText(listAsText()); toast('Skopiowano listę'); }
       catch { toast('Nie udało się skopiować'); }
       return;
     case 'fridge-del': delete state.fridge[el.dataset.id]; save(); break;
     case 'fridge-clear': state.fridge = {}; save(); break;
-    case 'rfilter': state.recipeFilter = el.dataset.v; break;
+    case 'rfilter': state.recipeFilter = el.dataset.v; state.recipeLimit = 40; break;
     default: return;
   }
   save();
@@ -520,6 +592,17 @@ document.addEventListener('submit', (e) => {
     save();
   }
   route();
+});
+
+let searchTimer;
+document.addEventListener('input', (e) => {
+  if (e.target.id !== 'recipe-search') return;
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    state.recipeQuery = e.target.value;
+    state.recipeLimit = 40;
+    document.getElementById('recipe-list').innerHTML = recipeList();
+  }, 150);
 });
 
 sheet.addEventListener('click', (e) => { if (e.target === sheet) sheet.close(); });

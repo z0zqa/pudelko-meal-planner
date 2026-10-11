@@ -1,6 +1,8 @@
 import { INGREDIENTS, RECIPES } from './data.js';
+import { ANIA_RECIPES } from './recipes-ania.js';
 
-export const recipeById = Object.fromEntries(RECIPES.map((r) => [r.id, r]));
+export const ALL_RECIPES = [...RECIPES, ...ANIA_RECIPES];
+export const recipeById = Object.fromEntries(ALL_RECIPES.map((r) => [r.id, r]));
 
 export function round2(x) {
   return Math.round(x * 100) / 100;
@@ -11,11 +13,13 @@ export function fitsDiet(recipe, s) {
   if (s.diet === 'wegan' && !recipe.tags.includes('wegan')) return false;
   if (s.glutenFree && !recipe.tags.includes('bezgl')) return false;
   if (s.excluded?.includes(recipe.id)) return false;
+  if (s.source === 'own' && recipe.source) return false;
+  if (s.source === 'ania' && !recipe.source) return false;
   return true;
 }
 
 export function candidates(type, s) {
-  return RECIPES.filter((r) => r.type === type && fitsDiet(r, s));
+  return ALL_RECIPES.filter((r) => r.type === type && fitsDiet(r, s));
 }
 
 // Ile różnych dań na dany okres: obiady co ~2-3 dni, śniadania co ~4 dni.
@@ -187,6 +191,41 @@ export function replaceMeal(plan, index, newId) {
   const ids = plan.meals.map((m, i) => (i === index ? newId : m.recipeId));
   const ofType = (t) => ids.filter((_, i) => plan.meals[i].type === t);
   return buildMeals(ofType('obiad'), ofType('sniadanie'), plan.settings);
+}
+
+export function grams(id, q) {
+  const I = INGREDIENTS[id];
+  if (I.unit === 'g' || I.unit === 'ml') return q;
+  if (I.unit === 'szczypta') return 0;
+  return q * (I.gPerSzt || 100);
+}
+
+// Kalorie i białko na porcję. Przepisy Ani mają wartości z jej strony, pozostałe liczymy ze składników.
+const nutrCache = new Map();
+export function nutrition(r) {
+  if (r.nutr) return r.nutr;
+  if (!nutrCache.has(r.id)) {
+    let kcal = 0, protein = 0;
+    for (const [id, q] of Object.entries(r.ing)) {
+      const g = grams(id, q);
+      kcal += (g * INGREDIENTS[id].kcal) / 100;
+      protein += (g * INGREDIENTS[id].protein) / 100;
+    }
+    nutrCache.set(r.id, { kcal: Math.round(kcal / r.serves), protein: Math.round(protein / r.serves) });
+  }
+  return nutrCache.get(r.id);
+}
+
+// Suma na osobę w danym dniu planu.
+export function dayNutrition(meals, day) {
+  const out = { kcal: 0, protein: 0 };
+  for (const m of meals) {
+    if (!m.days.includes(day)) continue;
+    const n = nutrition(recipeById[m.recipeId]);
+    out.kcal += n.kcal;
+    out.protein += n.protein;
+  }
+  return out;
 }
 
 export function fmtQty(q, unit) {

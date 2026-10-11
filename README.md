@@ -28,3 +28,12 @@ Można też opublikować przez GitHub Pages (Settings → Pages → branch `main
 - `js/app.js`: interfejs (czysty JavaScript, bez frameworka i bez kroku budowania).
 
 Ceny są orientacyjne. Żeby je zaktualizować, zmień pole `price` w `js/data.js`.
+
+## Przepisy z aniagotuje.pl (prywatnie)
+
+Aplikacja ma też ok. 720 przepisów z [aniagotuje.pl](https://aniagotuje.pl), **wyłącznie na własny użytek**. Repozytorium jest prywatne i tak powinno zostać: nie publikuj tej wersji (np. przez GitHub Pages), bo przepisy są własnością autorki.
+
+- `tools/fetch_aniagotuje.py`: pobiera przepisy do `data/aniagotuje-raw.json` (wznawia przerwane pobieranie).
+- `tools/build-ania.mjs`: zamienia je na `js/recipes-ania.js`. Składniki z tekstu („2 ząbki czosnku”, „pół szklanki mleka”) są przeliczane na produkty z cennika. Przepisy z nierozpoznanym składnikiem i same dodatki (surówki, frytki) są pomijane. `--report` pokazuje nierozpoznane składniki, `--debug="Nazwa"` rozbiór jednego przepisu.
+
+Ilości są przybliżone. Przy gotowaniu korzystaj z oryginału, do którego link jest przy każdym przepisie.

@@ -146,7 +146,7 @@ export const MEAL_SHARE = { obiad: 0.4, sniadanie: 0.25 };
 export function portionFactor(r, type, kcalTarget) {
   if (!kcalTarget) return 1;
   const k = nutrition(r).kcal || 1;
-  return Math.min(2.5, Math.max(0.75, Math.round(((kcalTarget * MEAL_SHARE[type]) / k) * 4) / 4));
+  return Math.min(2.5, Math.max(0.5, Math.round(((kcalTarget * MEAL_SHARE[type]) / k) * 4) / 4));
 }
 
 export function schedule(recipeIds, type, days, people, kcalTarget) {
@@ -292,7 +292,8 @@ export function generatePlan(s, fridge = {}, rng = Math.random, tries = 2500) {
     if (s.kcal) {
       const goal = s.kcal * (MEAL_SHARE.obiad + (b.length ? MEAL_SHARE.sniadanie : 0));
       const avg = Array.from({ length: s.days }, (_, i) => dayNutrition(meals, i).kcal).reduce((a, x) => a + x, 0) / s.days;
-      score += Math.max(0, goal - avg) / goal * s.budget;
+      // Kara za odchylenie w obie strony: za mało jedzenia i przekroczenie limitu.
+      score += Math.abs(goal - avg) / goal * s.budget;
     }
     results.push({ meals, cost, score });
   }

@@ -6,14 +6,16 @@ import {
 
 // ── Stan (zapisywany w localStorage) ──
 const KEY = 'pudelko-v1';
-const DEFAULT_SETTINGS = { budget: 50, days: 5, people: 1, breakfasts: false, diet: 'all', glutenFree: false, source: 'all', kcal: 2000, avoid: ['papryka'], lactoseFree: true, effort: 'min', oven: false, airfryer: true };
+// Stały dzienny cel kalorii (ustawienie użytkowniczki), niezależnie od wcześniej zapisanych ustawień.
+const KCAL = 1500;
+const DEFAULT_SETTINGS = { budget: 50, days: 5, people: 1, breakfasts: false, diet: 'all', glutenFree: false, source: 'all', kcal: 1500, avoid: ['papryka'], lactoseFree: true, effort: 'min', oven: false, airfryer: true };
 const state = load();
 
 function load() {
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(KEY)) || {}; } catch {}
   return {
-    settings: { ...DEFAULT_SETTINGS, ...saved.settings },
+    settings: { ...DEFAULT_SETTINGS, ...saved.settings, kcal: KCAL },
     plan: saved.plan || null,
     fridge: saved.fridge || {},
     checked: saved.checked || {},
@@ -107,7 +109,7 @@ function renderPlan() {
       <div class="muted small">Budżet ${fmtZl(s.budget)} · ok. ${fmtZl(list.total / (s.days * s.people))} na osobę dziennie</div>
       ${prefsLine(s)}
       ${nutritionSummary(p)}
-      ${left < 0 ? `<p class="notice" style="margin:12px 0 0">Nie udało się zmieścić w budżecie. To najtańszy plan, jaki da się ułożyć z tych przepisów. Spróbuj krótszego okresu, niższego celu kalorii albo wyłącz śniadania.</p>` : ''}
+      ${left < 0 ? `<p class="notice" style="margin:12px 0 0">Nie udało się zmieścić w budżecie. To najtańszy plan, jaki da się ułożyć z tych przepisów. Spróbuj krótszego okresu albo wyłącz śniadania.</p>` : ''}
       <div class="row" style="margin-top:14px">
         <a class="btn primary" href="#zakupy">Lista zakupów</a>
         <a class="btn" href="#gotowanie">Gotowanie</a>
@@ -207,7 +209,6 @@ function dayRow(d) {
 
 function renderForm() {
   const s = state.settings;
-  const kcalChip = (v, label) => `<button class="chip" data-action="kcal" data-v="${v}" aria-pressed="${(s.kcal || 0) === v}">${label || `${v.toLocaleString('pl-PL')} kcal`}</button>`;
   const effortChip = (v, label) => `<button type="button" class="chip" data-action="effort" data-v="${v}" aria-pressed="${(s.effort || 'any') === v}">${label}</button>`;
   const srcChip = (v, label) => `<button class="chip" data-action="source" data-v="${v}" aria-pressed="${s.source === v}">${label}</button>`;
   const dietChip = (v, label) => `<button class="chip" data-action="diet" data-v="${v}" aria-pressed="${s.diet === v}">${label}</button>`;
@@ -257,9 +258,8 @@ function renderForm() {
         <label class="switch"><span>Air fryer<br><span class="muted small">bez piekarnika bierzemy z jego przepisów tylko to, co da się zrobić w air fryerze</span></span><input type="checkbox" name="airfryer" ${s.airfryer ? 'checked' : ''}></label>
       </div>
       <div class="field">
-        <div class="label">Ile kalorii dziennie na osobę?</div>
-        <div class="chips">${kcalChip(1600)}${kcalChip(2000)}${kcalChip(2500)}${kcalChip(0, 'Nie licz')}</div>
-        <p class="muted small" style="margin:6px 0 0">Porcje obiadu dobierzemy na ok. 40% tej wartości, śniadania na 25%. Więcej jedzenia to większe zakupy.</p>
+        <div class="label">Kalorie: ${KCAL.toLocaleString('pl-PL')} kcal dziennie</div>
+        <p class="muted small" style="margin:6px 0 0">Porcje dobieramy tak, żeby obiad miał ok. ${Math.round(KCAL * 0.4)} kcal, a śniadanie ok. ${Math.round(KCAL * 0.25)}. Zostaje ok. ${Math.round(KCAL * 0.35)} kcal na kolację i przekąski.</p>
       </div>
       <div class="field">
         <div class="label">Skąd przepisy?</div>
@@ -745,7 +745,6 @@ document.addEventListener('click', async (e) => {
     case 'effort': readForm(); s.effort = el.dataset.v; break;
     case 'avoid-add': readForm(); break;
     case 'avoid-del': readForm(); s.avoid = (s.avoid || []).filter((t) => t !== el.dataset.v); break;
-    case 'kcal': readForm(); s.kcal = +el.dataset.v; break;
     case 'rsource': state.recipeSource = el.dataset.v; state.recipeLimit = 40; break;
     case 'more': state.recipeLimit += 40; break;
     case 'reroll': makePlan(); toast('Wylosowano nowe dania'); break;

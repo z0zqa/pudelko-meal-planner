@@ -438,6 +438,23 @@ function calcNutrition(ing, pantryKcal, serves) {
   return { kcal: kcal / serves, protein: protein / serves };
 }
 
+// Znaczniki sposobu przygotowania z tools/fetch_flags.py (bez tekstu przepisów).
+const FLAGS = existsSync(`${ROOT}data/flags.json`) ? JSON.parse(readFileSync(`${ROOT}data/flags.json`, 'utf8')) : {};
+// Z piekarnika do air fryera przenoszą się dania pieczone w kawałkach; zapiekanki, tarty i ciasta nie.
+const NOT_AF = /zapiekank|zapiekan|tart(a|y|ę)\b|quiche|lasagn|lazani|cannelloni|musak|gratin|ciast|keks|babk|sernik|chleb|bułk|pizz|strudel|clafoutis|suflet|pasztet|rolad|wieniec|calzone|kulebiak|pieróg|pierog|biszkopt|placek|frittat|moussaka|pieczeń|indyk w całości|kaczka w całości|gęś|kurczak w całości|cały kurczak/;
+function methodFlags(r) {
+  const f = FLAGS[r.url];
+  if (!f) return {};
+  const out = {};
+  if (f.oven) out.oven = 1;
+  if (f.oven && (f.airfryer || (!f.dish && !NOT_AF.test(r.name.toLowerCase())))) out.af = 1;
+  if (f.airfryer) out.af = 1;
+  if (f.nocook) out.nocook = 1;
+  if (f.fry) out.fry = 1;
+  if (f.steps) out.nsteps = f.steps;
+  return out;
+}
+
 const which = process.argv.slice(2).filter((a) => !a.startsWith('--'));
 const DEBUG = process.argv.find((x) => x.startsWith('--debug='))?.slice(8);
 
@@ -507,6 +524,7 @@ for (const key of which.length ? which : Object.keys(SOURCES)) {
       totalTime: r.totalTime,
       nutr,
       words: ingredientWords(r),
+      ...methodFlags(r),
     });
   }
   out.sort((a, b) => a.name.localeCompare(b.name, 'pl'));

@@ -1,12 +1,12 @@
 import { INGREDIENTS, CATEGORIES, TAG_LABELS } from './data.js';
 import {
-  ALL_RECIPES, siteOf, SITES, EFFORT, norm, buyId, avoidStems, containsAvoided, recipeTime, recipeById, scaled, nutrition, dayNutrition, generatePlan, MEAL_SHARE, shoppingList, swapOptions, costPerPortion, cookDays,
+  ALL_RECIPES, siteOf, SITES, EFFORT, norm, buyId, isQuickHealthy, healthInfo, ingCount, fitsEquipment, avoidStems, containsAvoided, recipeTime, recipeById, scaled, nutrition, dayNutrition, generatePlan, MEAL_SHARE, shoppingList, swapOptions, costPerPortion, cookDays,
   fmtQty, fmtZl, round2,
 } from './planner.js';
 
 // ── Stan (zapisywany w localStorage) ──
 const KEY = 'pudelko-v1';
-const DEFAULT_SETTINGS = { budget: 50, days: 5, people: 1, breakfasts: false, diet: 'all', glutenFree: false, source: 'all', kcal: 2000, avoid: ['papryka'], lactoseFree: true, effort: 'min' };
+const DEFAULT_SETTINGS = { budget: 50, days: 5, people: 1, breakfasts: false, diet: 'all', glutenFree: false, source: 'all', kcal: 2000, avoid: ['papryka'], lactoseFree: true, effort: 'min', oven: false, airfryer: true };
 const state = load();
 
 function load() {
@@ -25,7 +25,7 @@ function load() {
   };
 }
 function save() {
-  const { recipeFilter, recipeSource, recipeQuery, recipeLimit, editing, ...rest } = state;
+  const { recipeFilter, recipeSource, recipeQuery, recipeLimit, editing, quickType, quickMode, quickLimit, ...rest } = state;
   try { localStorage.setItem(KEY, JSON.stringify(rest)); } catch {}
 }
 
@@ -61,7 +61,7 @@ const sheet = document.getElementById('sheet');
 function route() {
   const tab = (location.hash || '#plan').slice(1);
   document.querySelectorAll('.tabs a').forEach((a) => a.classList.toggle('active', a.dataset.tab === tab));
-  const render = { plan: renderPlan, zakupy: renderShopping, gotowanie: renderCooking, lodowka: renderFridge, przepisy: renderRecipes }[tab] || renderPlan;
+  const render = { plan: renderPlan, zakupy: renderShopping, gotowanie: renderCooking, lodowka: renderFridge, przepisy: renderRecipes, szybkie: renderQuick }[tab] || renderPlan;
   view.innerHTML = render();
   renderTopInfo();
 }
@@ -151,6 +151,14 @@ const mealNutrition = (m) => { const n = nutrition(recipeById[m.recipeId]); cons
 const fmtFactor = (f) => String(f).replace('.', ',');
 const portionSize = (m) => (m.factor && m.factor !== 1 ? ` po ×${fmtFactor(m.factor)}` : '');
 
+// Oznaczenie sprzętu. Danie z piekarnika robione w air fryerze dostaje wskazówkę, jak przeliczyć.
+function equipmentPill(r, s) {
+  if (r.oven && r.af && s.oven === false) return '<span class="pill accent" title="Temperatura o ok. 20°C niższa, czas o ok. 20% krótszy niż w przepisie, w mniejszych porcjach">air fryer zamiast piekarnika</span>';
+  if (r.af && !r.oven) return '<span class="pill accent">air fryer</span>';
+  if (r.nocook) return '<span class="pill">bez gotowania</span>';
+  return '';
+}
+
 function dishCard(m, i) {
   const r = recipeById[m.recipeId];
   const p = state.plan;
@@ -158,6 +166,8 @@ function dishCard(m, i) {
   const b = m.batches;
   if (b.some((x) => x.freeze)) tags.push('<span class="pill accent">część do zamrażarki</span>');
   if (b.length > 1 || b[0].cookDay > 0) tags.push(`<span class="pill">gotujesz: ${b.map((x) => dayShort(x.cookDay)).join(', ')}</span>`);
+  const eq = equipmentPill(r, state.plan.settings);
+  if (eq) tags.push(eq);
   return `
     <article class="card dish">
       <div class="emoji">${r.emoji}</div>
@@ -234,8 +244,13 @@ function renderForm() {
       </div>
       <div class="field">
         <div class="label">Ile czasu na gotowanie?</div>
-        <div class="chips">${effortChip('min', 'Minimum')}${effortChip('normal', 'Normalnie')}${effortChip('any', 'Lubię gotować')}</div>
-        <p class="muted small" style="margin:6px 0 0">${{ min: 'Obiady do 40 min, bez smażenia partiami i ciasta drożdżowego, śniadania do 15 min. Mniej różnych dań, więc gotujesz rzadziej.', normal: 'Obiady do 75 min, śniadania do 30 min.', any: 'Bez limitu czasu.' }[s.effort || 'any']}</p>
+        <div class="chips">${effortChip('ultra', 'Ultra szybko i zdrowo')}${effortChip('min', 'Minimum')}${effortChip('normal', 'Normalnie')}${effortChip('any', 'Lubię gotować')}</div>
+        <p class="muted small" style="margin:6px 0 0">${{ ultra: 'Tylko dania z zakładki Szybkie: obiad do 25 min, śniadanie do 15, najwyżej 7 produktów, dużo białka i warzywa.', min: 'Obiady do 40 min, bez smażenia partiami i ciasta drożdżowego, śniadania do 15 min. Mniej różnych dań, więc gotujesz rzadziej.', normal: 'Obiady do 75 min, śniadania do 30 min.', any: 'Bez limitu czasu.' }[s.effort || 'any']}</p>
+      </div>
+      <div class="field">
+        <div class="label">Czym gotujesz?</div>
+        <label class="switch"><span>Piekarnik</span><input type="checkbox" name="oven" ${s.oven !== false ? 'checked' : ''}></label>
+        <label class="switch"><span>Air fryer<br><span class="muted small">bez piekarnika bierzemy z jego przepisów tylko to, co da się zrobić w air fryerze</span></span><input type="checkbox" name="airfryer" ${s.airfryer ? 'checked' : ''}></label>
       </div>
       <div class="field">
         <div class="label">Ile kalorii dziennie na osobę?</div>
@@ -272,6 +287,8 @@ function readForm() {
   state.settings.glutenFree = f.glutenFree.checked;
   state.settings.breakfasts = f.breakfasts.checked;
   state.settings.lactoseFree = f.lactoseFree.checked;
+  state.settings.oven = f.oven.checked;
+  state.settings.airfryer = f.airfryer.checked;
   addAvoid(f.querySelector('#avoid-q')?.value);
 }
 
@@ -504,7 +521,7 @@ function recipeList() {
   const q = norm(state.recipeQuery.trim());
   const stems = avoidStems(state.settings.avoid);
   const all = ALL_RECIPES.filter((r) => (r.type === f || r.tags.includes(f)) && (src === 'all' || siteOf(r) === src));
-  const base = all.filter((r) => !containsAvoided(r, stems));
+  const base = all.filter((r) => !containsAvoided(r, stems) && fitsEquipment(r, state.settings));
   const hidden = all.length - base.length;
   // Najpierw trafienia w nazwie dania, potem dania z takim składnikiem.
   const list = !q ? base : [
@@ -513,7 +530,7 @@ function recipeList() {
   ];
   const shown = list.slice(0, state.recipeLimit);
   return `
-    <p class="muted small">${list.length} ${plural(list.length, 'przepis', 'przepisy', 'przepisów')}${hidden ? ` · ukryto ${hidden} z produktami, których nie jesz (${state.settings.avoid.join(', ')})` : ''}</p>
+    <p class="muted small">${list.length} ${plural(list.length, 'przepis', 'przepisy', 'przepisów')}${hidden ? ` · ukryto ${hidden} (produkty, których nie jesz${state.settings.oven === false ? ', albo potrzebny piekarnik' : ''})` : ''}</p>
     ${shown.map((r) => `
       <button class="option" data-action="recipe" data-id="${r.id}">
         <span class="emoji">${r.emoji}</span>
@@ -521,6 +538,44 @@ function recipeList() {
         <span></span>
       </button>`).join('')}
     ${list.length > shown.length ? `<button class="btn block" data-action="more">Pokaż więcej (${list.length - shown.length})</button>` : ''}`;
+}
+
+// Szybkie i zdrowe
+
+function renderQuick() {
+  const s = state.settings;
+  const f = state.quickType || 'obiad';
+  const mode = state.quickMode || 'all';
+  const stems = avoidStems(s.avoid);
+  const list = ALL_RECIPES
+    .filter((r) => r.type === f && isQuickHealthy(r) && fitsEquipment(r, s) && !containsAvoided(r, stems))
+    .filter((r) => mode === 'all' || (mode === 'af' ? r.af : r.nocook))
+    .map((r) => ({ r, h: healthInfo(r) }))
+    .sort((a, b) => b.h.score - a.h.score);
+  const shown = list.slice(0, state.quickLimit || 30);
+  const chip = (action, cur, v, label) => `<button class="chip" data-action="${action}" data-v="${v}" aria-pressed="${cur === v}">${label}</button>`;
+  return `
+    <h1>Szybkie i zdrowe</h1>
+    <p class="muted">Obiady do 25 minut, śniadania do 15. Najwyżej 7 produktów do kupienia, sporo białka, warzywa, bez smażenia w głębokim tłuszczu.</p>
+    <div class="chips" style="margin-bottom:8px">${chip('qtype', f, 'obiad', 'Obiady')}${chip('qtype', f, 'sniadanie', 'Śniadania')}</div>
+    <div class="chips" style="margin-bottom:12px">${chip('qmode', mode, 'all', 'Wszystkie')}${chip('qmode', mode, 'af', 'Air fryer')}${chip('qmode', mode, 'nocook', 'Bez gotowania')}</div>
+    <p class="muted small">${list.length} ${plural(list.length, 'przepis', 'przepisy', 'przepisów')}${s.avoid?.length ? ` · bez: ${s.avoid.join(', ')}` : ''}${s.oven === false ? ' · bez piekarnika' : ''}</p>
+    ${shown.map(({ r, h }) => `
+      <article class="card dish">
+        <div class="emoji">${r.emoji}</div>
+        <div style="min-width:0">
+          <h3>${r.name}</h3>
+          <div class="meta">${minTxt(recipeTime(r))} · ${ingCount(r)} ${plural(ingCount(r), 'produkt', 'produkty', 'produktów')} · ${h.protein} g białka · ${h.kcal} kcal${siteTag(r)}</div>
+          ${equipmentPill(r, s) ? `<div class="row" style="margin-top:6px">${equipmentPill(r, s)}</div>` : ''}
+          <div class="row">
+            ${r.source ? aniaBtn(r, 'btn small') : `<button class="btn small" data-action="recipe" data-id="${r.id}">Przepis</button>`}
+            ${r.source ? `<button class="btn small ghost" data-action="recipe" data-id="${r.id}">Składniki</button>` : ''}
+          </div>
+        </div>
+      </article>`).join('')}
+    ${list.length > shown.length ? `<button class="btn block" data-action="qmore">Pokaż więcej (${list.length - shown.length})</button>` : ''}
+    ${!list.length ? '<div class="card soft muted">Nic nie pasuje do tych filtrów. Zmień „Wszystkie / Air fryer / Bez gotowania” albo listę „Czego nie jesz” w ustawieniach planu.</div>' : ''}
+    <p class="muted small" style="margin-top:12px">Chcesz cały plan z takich dań? W ustawieniach planu wybierz „Ultra szybko i zdrowo”.</p>`;
 }
 
 function recipeBody(r) {
@@ -532,6 +587,7 @@ function recipeBody(r) {
       <span class="pill accent">${kcalTxt(n)} · ${n.protein} g białka / porcja</span>
       <span class="pill">ok. ${fmtZl(costPerPortion(r, state.settings))}/porcja</span>
       <span class="pill">${daysTxt(r.keeps)} w lodówce${r.freezes ? ', mrozi się' : ''}</span>
+      ${equipmentPill(r, state.settings)}
       ${r.tags.map((t) => `<span class="pill">${TAG_LABELS[t]}</span>`).join('')}
     </div>
     <strong class="small">${r.source ? 'Zakupy' : 'Składniki'} na ${portionsTxt(r.serves)}</strong>
@@ -669,6 +725,9 @@ document.addEventListener('click', async (e) => {
     case 'fridge-add': return addToFridge(el.dataset.id, parseFloat(el.dataset.q));
     case 'fridge-del': delete state.fridge[el.dataset.id]; save(); break;
     case 'fridge-clear': state.fridge = {}; save(); break;
+    case 'qtype': state.quickType = el.dataset.v; state.quickLimit = 30; break;
+    case 'qmode': state.quickMode = el.dataset.v; state.quickLimit = 30; break;
+    case 'qmore': state.quickLimit = (state.quickLimit || 30) + 30; break;
     case 'rfilter': state.recipeFilter = el.dataset.v; state.recipeLimit = 40; break;
     default: return;
   }

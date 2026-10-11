@@ -221,7 +221,7 @@ export const RECIPES = [
     steps: [['Ugotuj makaron.', 10], ['Rozmroź szpinak na patelni z czosnkiem.', 8], ['Dodaj śmietanę i połowę pokruszonej fety.', 3], ['Wymieszaj z makaronem, rozłóż, posyp resztą fety.', 4]],
   },
   {
-    id: 'udka', words: 'papryka mielona', name: 'Pieczone udka z ziemniakami', type: 'obiad', emoji: '🍗', serves: 4, keeps: 4,
+    id: 'udka', oven: 1, af: 1, words: 'papryka mielona', name: 'Pieczone udka z ziemniakami', type: 'obiad', emoji: '🍗', serves: 4, keeps: 4,
     desc: 'Wszystko na jednej blasze. Ty kroisz, piekarnik robi resztę.',
     tags: ['bezgl'],
     ing: { udka: 1000, ziemniaki: 1200, marchew: 400, cebula: 2, olej: 40, przyprawy: 1 },
@@ -291,16 +291,67 @@ export const RECIPES = [
     steps: [['Ugotuj makaron i jajka na twardo.', 12], ['Pokrój ogórek i jajka.', 5], ['Wymieszaj wszystko z jogurtem, solą i pieprzem.', 5], ['Rozłóż do pojemników.', 3]],
   },
   {
-    id: 'bulgur-feta', name: 'Bulgur z pieczonymi warzywami i fetą', type: 'obiad', emoji: '🫒', serves: 4, keeps: 4,
+    id: 'bulgur-feta', oven: 1, af: 1, name: 'Bulgur z pieczonymi warzywami i fetą', type: 'obiad', emoji: '🫒', serves: 4, keeps: 4,
     desc: 'Blacha warzyw z piekarnika, ciecierzyca i słona feta. Wegetariańsko i sycąco.',
     tags: ['wege'],
     ing: { bulgur: 300, cukinia: 1, papryka: 2, ciecierzyca: 400, feta: 200, cytryna: 0.5, olej: 30, przyprawy: 1 },
     steps: [['Nagrzej piekarnik do 220°C. Pokrój warzywa, wymieszaj z ciecierzycą i olejem.', 10], ['Piecz na blasze.', 25], ['Zalej bulgur wrzątkiem 1:2 i odstaw pod przykryciem.', 15], ['Wymieszaj wszystko z cytryną, pokrusz fetę, rozłóż do pojemników.', 5]],
   },
 
+  // ── Air fryer: szybko, mało składników, dużo białka ──
+  {
+    id: 'af-losos', totalTime: 18, af: 1, name: 'Łosoś z air fryera z brokułem i ryżem', type: 'obiad', emoji: '🐟', serves: 2, keeps: 2,
+    desc: 'Łosoś i brokuł pieką się razem w koszu, w tym czasie gotuje się ryż. Kwadrans i gotowe.',
+    tags: ['bezgl'],
+    ing: { losos: 300, brokul: 1, ryz: 150, cytryna: 0.5, olej: 10, przyprawy: 1 },
+    steps: [['Nastaw ryż.', 15], ['Brokuł podziel na różyczki, łososia pokrój na 2 kawałki. Skrop olejem i cytryną, posól i popieprz.', 3], ['Air fryer: 200°C, 10–12 minut, w połowie potrząśnij koszem.', 12]],
+  },
+  {
+    id: 'af-kurczak-bulgur', totalTime: 18, af: 1, name: 'Kurczak z air fryera z bulgurem i tzatziki', type: 'obiad', emoji: '🍗', serves: 2, keeps: 3,
+    desc: 'Kawałki piersi z czosnkiem i ziołami, bulgur zalany wrzątkiem i szybki sos jogurtowy z ogórkiem.',
+    tags: [],
+    ing: { piers: 400, bulgur: 150, ogorek: 1, jogurt: 150, czosnek: 0.25, olej: 10, przyprawy: 1 },
+    steps: [['Bulgur zalej wrzątkiem 1:2 i przykryj.', 2], ['Pierś pokrój w kostkę, wymieszaj z olejem, solą, ziołami i połową czosnku.', 3], ['Air fryer: 200°C, 12 minut, w połowie potrząśnij.', 12], ['Ogórek zetrzyj, wymieszaj z jogurtem i resztą czosnku.', 3]],
+  },
+  {
+    id: 'af-ciecierzyca', totalTime: 20, af: 1, name: 'Warzywa z air fryera z ciecierzycą i fetą', type: 'obiad', emoji: '🥘', serves: 2, keeps: 3,
+    desc: 'Cukinia, pomidory i chrupiąca ciecierzyca z kosza, na koniec pokruszona feta. Bez stania przy garach.',
+    tags: ['wege', 'bezgl'],
+    ing: { cukinia: 1, ciecierzyca: 400, pomidor: 300, feta: 100, olej: 15, przyprawy: 1 },
+    steps: [['Cukinię i pomidory pokrój w duże kawałki, ciecierzycę odcedź i osusz.', 5], ['Wymieszaj z olejem, solą i oregano.', 1], ['Air fryer: 200°C, 15 minut, dwa razy potrząśnij.', 15], ['Posyp pokruszoną fetą.', 1]],
+  },
+  {
+    id: 'af-tofu', totalTime: 20, af: 1, name: 'Chrupiące tofu z air fryera z ryżem i brokułem', type: 'obiad', emoji: '🥡', serves: 2, keeps: 3,
+    desc: 'Tofu robi się chrupiące bez smażenia. Do tego brokuł z tego samego kosza i sos sojowy.',
+    tags: ['wege', 'wegan'],
+    ing: { tofu: 360, brokul: 1, ryz: 150, sojowy: 30, olej: 10 },
+    steps: [['Nastaw ryż.', 15], ['Tofu odciśnij, pokrój w kostkę, wymieszaj z łyżką sosu sojowego i olejem.', 3], ['Air fryer: 200°C, 15 minut; brokuł dorzuć na ostatnie 7 minut.', 15], ['Polej resztą sosu sojowego.', 1]],
+  },
+  {
+    id: 'af-udka', totalTime: 30, af: 1, name: 'Udka z air fryera z ziemniakami i marchewką', type: 'obiad', emoji: '🍗', serves: 2, keeps: 3,
+    desc: 'Klasyczny obiad z jednego kosza: chrupiąca skórka i ziemniaki z ziołami.',
+    tags: ['bezgl'],
+    ing: { udka: 600, ziemniaki: 500, marchew: 200, olej: 15, przyprawy: 1 },
+    steps: [['Ziemniaki i marchew pokrój w ćwiartki, wymieszaj z olejem i solą.', 5], ['Udka natrzyj solą i ziołami, połóż na warzywach.', 2], ['Air fryer: 190°C, 25 minut, w połowie przewróć udka.', 25]],
+  },
+  {
+    id: 'af-jajka-szpinak', totalTime: 12, af: 1, name: 'Jajka zapiekane ze szpinakiem w air fryerze', type: 'sniadanie', emoji: '🍳', serves: 2, keeps: 2,
+    desc: 'Jajka ze szpinakiem, pomidorem i serem w małych foremkach. Dużo białka na start dnia.',
+    tags: ['wege', 'bezgl'],
+    ing: { jajka: 4, szpinak: 150, pomidor: 150, ser: 40, przyprawy: 1 },
+    steps: [['Rozmrożony szpinak i pokrojony pomidor rozłóż do 2 foremek, wbij po 2 jajka, posyp serem.', 4], ['Air fryer: 180°C, 8–10 minut.', 9]],
+  },
+  {
+    id: 'sn-jogurt-owoce', totalTime: 5, nocook: 1, name: 'Jogurt z owocami, płatkami i orzechami', type: 'sniadanie', emoji: '🥣', serves: 2, keeps: 2,
+    desc: 'Bez gotowania: jogurt, mrożone owoce, garść płatków i orzechów. Owoce rozmrożą się w lodówce przez noc.',
+    tags: ['wege'],
+    ing: { jogurt: 400, owoce: 200, platki: 60, rodzynki: 30 },
+    steps: [['Przełóż jogurt do 2 słoików, dodaj owoce, płatki i orzechy.', 5]],
+  },
+
   // ── Śniadania ──
   {
-    id: 'owsianka-nanoc', name: 'Owsianka na noc z bananem', type: 'sniadanie', emoji: '🍌', serves: 4, keeps: 4,
+    id: 'owsianka-nanoc', nocook: 1, name: 'Owsianka na noc z bananem', type: 'sniadanie', emoji: '🍌', serves: 4, keeps: 4,
     desc: 'Płatki zalane wieczorem, rano gotowe. Z masłem orzechowym.',
     tags: ['wege', 'wegan'],
     ing: { platki: 240, banany: 4, masloOrz: 80 },
@@ -314,14 +365,14 @@ export const RECIPES = [
     steps: [['Rozgnieć banany, wymieszaj z jajkami i płatkami.', 5], ['Smaż małe placuszki na lekko natłuszczonej patelni.', 15], ['Przechowuj w pojemniku w lodówce.', 2]],
   },
   {
-    id: 'muffinki', name: 'Muffinki jajeczne ze szpinakiem', type: 'sniadanie', emoji: '🧁', serves: 4, keeps: 4,
+    id: 'muffinki', oven: 1, af: 1, name: 'Muffinki jajeczne ze szpinakiem', type: 'sniadanie', emoji: '🧁', serves: 4, keeps: 4,
     desc: 'Jak omlet do ręki. Dwie muffinki na śniadanie.',
     tags: ['wege', 'bezgl'],
     ing: { jajka: 8, szpinak: 225, ser: 75, papryka: 1, olej: 10, przyprawy: 1 },
     steps: [['Nagrzej piekarnik do 180°C, natłuść foremki do muffinek.', 5], ['Roztrzep jajka, dodaj szpinak, paprykę i ser.', 5], ['Rozlej do foremek i piecz.', 20]],
   },
   {
-    id: 'twarozek', name: 'Twarożek z ogórkiem na chlebie', type: 'sniadanie', emoji: '🥒', serves: 4, keeps: 3,
+    id: 'twarozek', nocook: 1, name: 'Twarożek z ogórkiem na chlebie', type: 'sniadanie', emoji: '🥒', serves: 4, keeps: 3,
     desc: 'Twaróg z jogurtem i świeżym ogórkiem. Klasyczne polskie śniadanie.',
     tags: ['wege'],
     ing: { twarog: 500, jogurt: 200, ogorek: 1, chleb: 500, przyprawy: 1 },
@@ -335,7 +386,7 @@ export const RECIPES = [
     steps: [['Ugotuj jajka na twardo.', 10], ['Ostudź, obierz i rozgnieć z jogurtem, solą i pieprzem.', 5]],
   },
   {
-    id: 'owsianka-pieczona', name: 'Pieczona owsianka z jabłkiem', type: 'sniadanie', emoji: '🍎', serves: 4, keeps: 4,
+    id: 'owsianka-pieczona', oven: 1, name: 'Pieczona owsianka z jabłkiem', type: 'sniadanie', emoji: '🍎', serves: 4, keeps: 4,
     desc: 'Jak ciasto, a to śniadanie. Kroisz na kawałki i odgrzewasz.',
     tags: ['wege'],
     ing: { platki: 250, mleko: 500, jajka: 2, jablka: 3, cukier: 30, przyprawy: 1 },

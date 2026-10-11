@@ -48,7 +48,50 @@ export const EFFORT = {
   min: { label: 'Minimum', obiad: 40, sniadanie: 15 },
   normal: { label: 'Normalnie', obiad: 75, sniadanie: 30 },
   any: { label: 'Lubię gotować', obiad: Infinity, sniadanie: Infinity },
+  ultra: { label: 'Ultra szybko i zdrowo', obiad: 25, sniadanie: 15 },
 };
+
+// ── Szybkie i zdrowe ──
+// Ultra proste: obiad do 25 min, śniadanie do 15, najwyżej 7 produktów do kupienia, mało kroków, bez smażenia w głębokim tłuszczu.
+// Zdrowe: rozsądne kalorie, sporo białka, warzywa (w śniadaniu też owoce), bez przetworzonego mięsa i słodzenia.
+const PROCESSED = ['boczek', 'kielbasa', 'parowki', 'majonez', 'ciastoFrancuskie', 'ketchup', 'smietanka'];
+const VEG = (id) => ['warzywa', 'mrozonki'].includes(INGREDIENTS[id].cat) && !['ziemniaki', 'batat', 'owoce', 'banany', 'jablka', 'pomarancza', 'rodzynki'].includes(id);
+const FRUIT = ['owoce', 'banany', 'jablka', 'pomarancza'];
+// Konkretne źródło białka w obiedzie (sam ser się nie liczy).
+const PROTEIN = ['jajka', 'tofu', 'fasola', 'fasolaBiala', 'ciecierzyca', 'soczewica', 'twarog', 'serekWiejski', 'tunczyk', 'losos', 'rybaBiala', 'sledz', 'krewetki'];
+export const ingCount = (r) => Object.keys(r.ing).filter((id) => !INGREDIENTS[id].pantry).length;
+export const stepCount = (r) => r.nsteps || (r.steps || []).length || 0;
+
+export function isQuick(r) {
+  if (recipeTime(r) > (r.type === 'obiad' ? 25 : 15) || r.fry) return false;
+  if (LABOR.test(r.name.toLowerCase()) || /panier/.test(r.name.toLowerCase())) return false;
+  if (ingCount(r) > 7) return false;
+  const st = stepCount(r);
+  return !st || st <= 6;
+}
+
+export function healthInfo(r) {
+  const n = nutrition(r);
+  const ids = Object.keys(r.ing);
+  const veg = ids.filter(VEG).length + (r.type === 'sniadanie' ? ids.filter((id) => FRUIT.includes(id)).length : 0);
+  const [lo, hi, minP] = r.type === 'obiad' ? [300, 750, 20] : [150, 550, 10];
+  const sugar = (r.ing.cukier || 0) + (r.ing.miod || 0) > 40;
+  const proteinSource = ids.some((id) => INGREDIENTS[id].cat === 'mieso' || PROTEIN.includes(id));
+  const ok = n.kcal >= lo && n.kcal <= hi && n.protein >= minP && veg >= 1 && !sugar && !ids.some((id) => PROCESSED.includes(id))
+    && (r.type !== 'obiad' || proteinSource);
+  // Ranking: udział białka w kaloriach, warzywa, krótszy czas.
+  const score = (n.protein * 4 / Math.max(1, n.kcal)) * 100 + veg * 4 - recipeTime(r) / 3 - ingCount(r);
+  return { ok, score, veg, ...n };
+}
+
+export const isQuickHealthy = (r) => isQuick(r) && healthInfo(r).ok;
+
+// Sprzęt: bez piekarnika zostają dania z piekarnika, które da się zrobić w air fryerze.
+export function fitsEquipment(r, s) {
+  if (r.oven && s.oven === false) return !!(s.airfryer && r.af);
+  if (r.af && !r.oven && s.airfryer === false) return false;
+  return true;
+}
 export const recipeTime = (r) => r.totalTime || (r.steps || []).reduce((a, x) => a + x[1], 0) || 60;
 
 // Dania, przy których stoi się przy patelni (smażenie partiami, lepienie) albo czeka na ciasto
@@ -59,7 +102,9 @@ const stemCache = new Map();
 export function fitsDiet(recipe, s) {
   const lim = EFFORT[s.effort || 'any'];
   if (recipeTime(recipe) > lim[recipe.type]) return false;
-  if (s.effort === 'min' && (LABOR.test(recipe.name.toLowerCase()) || /drozdz/.test(recipe.words || '') || 'drozdze' in recipe.ing)) return false;
+  if (!fitsEquipment(recipe, s)) return false;
+  if (s.effort === 'ultra' && !isQuickHealthy(recipe)) return false;
+  if ((s.effort === 'min' || s.effort === 'ultra') && (LABOR.test(recipe.name.toLowerCase()) || /drozdz/.test(recipe.words || '') || 'drozdze' in recipe.ing)) return false;
   if (s.avoid?.length) {
     const key = s.avoid.join('|');
     if (!stemCache.has(key)) stemCache.set(key, avoidStems(s.avoid));
@@ -80,7 +125,7 @@ export function candidates(type, s) {
 // Ile różnych dań na dany okres: obiady co ~2-3 dni, śniadania co ~4 dni.
 export function dishCount(type, days, effort) {
   // Przy „Minimum” mniej różnych dań: jedno danie na 3–4 dni, czyli rzadsze gotowanie.
-  if (effort === 'min') return type === 'obiad' ? Math.min(4, Math.max(1, Math.ceil(days / 3.5))) : Math.min(3, Math.max(1, Math.ceil(days / 5)));
+  if (effort === 'min' || effort === 'ultra') return type === 'obiad' ? Math.min(4, Math.max(1, Math.ceil(days / 3.5))) : Math.min(3, Math.max(1, Math.ceil(days / 5)));
   if (type === 'obiad') return Math.min(6, Math.max(1, Math.ceil(days / 2.5)));
   return Math.min(4, Math.max(1, Math.ceil(days / 4)));
 }
@@ -201,6 +246,13 @@ function sample(arr, k, rng) {
   return a.slice(0, k);
 }
 
+// Rodzaj dania do pilnowania urozmaicenia: słowo kluczowe z nazwy, a gdy brak — pierwsze słowo.
+const KINDS = ['owsiank', 'omlet', 'jajeczn', 'jajk', 'nalesn', 'plack', 'placusz', 'makaron', 'spaghetti', 'penne', 'zup', 'krem', 'salatk', 'kanapk', 'tost', 'pasta', 'losos', 'kurczak', 'ryz', 'kasz', 'tortill', 'wrap', 'burrito', 'gulasz', 'curry', 'twaroz', 'serek', 'jogurt', 'szaszl', 'pierogi', 'risotto', 'kaszotto'];
+export function dishKind(r) {
+  const n = norm(r.name);
+  return KINDS.find((k) => n.includes(k)) || n.split(' ')[0];
+}
+
 export function buildMeals(dinnerIds, breakfastIds, s) {
   const meals = schedule(dinnerIds, 'obiad', s.days, s.people, s.kcal);
   if (breakfastIds.length) meals.push(...schedule(breakfastIds, 'sniadanie', s.days, s.people, s.kcal));
@@ -230,13 +282,13 @@ export function generatePlan(s, fridge = {}, rng = Math.random, tries = 2500) {
     const dup = (k) => new Set(k).size < k.length;
     const same = (ids) => {
       const rs = ids.map((id) => recipeById[id]);
-      return dup(rs.map((r) => r.emoji).filter((e) => e !== '🍽️')) || dup(rs.map((r) => norm(r.name).split(' ')[0]));
+      return dup(rs.map((r) => r.emoji).filter((e) => e !== '🍽️')) || dup(rs.map(dishKind));
     };
-    if (same(d) || same(b) || dup([...d, ...b].map((id) => norm(recipeById[id].name).split(' ')[0]))) continue;
+    if (same(d) || same(b) || dup([...d, ...b].map((id) => dishKind(recipeById[id])))) continue;
     const meals = buildMeals(d, b, s);
     const cost = planCost(meals, fridge, s);
     // Kary w rankingu: każde dodatkowe gotowanie w tygodniu i niedobór kalorii względem celu.
-    let score = cost + (s.effort === 'min' ? 12 : 5) * (cookDays(meals).length - 1);
+    let score = cost + (s.effort === 'min' || s.effort === 'ultra' ? 12 : 5) * (cookDays(meals).length - 1);
     if (s.kcal) {
       const goal = s.kcal * (MEAL_SHARE.obiad + (b.length ? MEAL_SHARE.sniadanie : 0));
       const avg = Array.from({ length: s.days }, (_, i) => dayNutrition(meals, i).kcal).reduce((a, x) => a + x, 0) / s.days;

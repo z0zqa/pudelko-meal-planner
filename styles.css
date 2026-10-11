@@ -1,36 +1,40 @@
+/* Paleta marki: Cool Ivory + Charcoal + Black, akcent Deep Sage, detal Dusty Rose. */
 :root {
-  --bg: #fff8ee;
-  --surface: #ffffff;
-  --surface-2: #fbefdf;
-  --text: #2a211b;
-  --muted: #7b6c60;
-  --line: #eadccb;
-  --accent: #d9622b;
-  --accent-ink: #ffffff;
-  --accent-soft: #fde3d4;
-  --ok: #2f8a4c;
-  --ok-soft: #dcf1e2;
-  --warn: #b5402a;
-  --warn-soft: #fbe0da;
-  --radius: 16px;
-  --shadow: 0 1px 2px rgba(60, 40, 20, .06), 0 4px 16px rgba(60, 40, 20, .06);
+  --bg: #f2ece6;
+  --surface: #faf7f3;
+  --surface-2: #e7ddd2;
+  --text: #111315;
+  --muted: #4a4c4e;
+  --line: #d9d0c6;
+  --accent: #53685f;
+  --accent-ink: #faf7f3;
+  --accent-soft: #dde4e0;
+  --ok: #53685f;
+  --ok-soft: #dde4e0;
+  --warn: #8e5356;
+  --warn-soft: #f0e0e0;
+  --rose: #c98f91;
+  --radius: 14px;
+  --shadow: 0 1px 2px rgba(17, 19, 21, .04), 0 6px 20px rgba(17, 19, 21, .05);
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #1a1613;
-    --surface: #25201c;
-    --surface-2: #2f2823;
-    --text: #f4ece4;
-    --muted: #b3a597;
-    --line: #3b332c;
-    --accent: #f07a42;
-    --accent-ink: #1a1613;
-    --accent-soft: #4a2c1d;
-    --ok: #6ccb8a;
-    --ok-soft: #1f3a29;
-    --warn: #f08a75;
-    --warn-soft: #452620;
+    --bg: #111315;
+    --surface: #1a1d1f;
+    --surface-2: #24282a;
+    --text: #e7ddd2;
+    --muted: #a9aaab;
+    --line: #33373a;
+    --accent: #8fa699;
+    --accent-ink: #111315;
+    --accent-soft: #243029;
+    --ok: #8fa699;
+    --ok-soft: #243029;
+    --warn: #d9a5a7;
+    --warn-soft: #362829;
+    --rose: #c98f91;
     --shadow: none;
     color-scheme: dark;
   }
@@ -47,7 +51,8 @@ body {
 }
 a { color: var(--accent); }
 h1, h2, h3 { line-height: 1.2; margin: 0 0 .5rem; }
-h1 { font-size: 1.6rem; letter-spacing: -.01em; }
+h1 { font-family: var(--serif); font-weight: 600; font-size: 1.75rem; letter-spacing: -.01em; }
+h2 { font-family: var(--serif); font-weight: 600; color: var(--accent); }
 h2 { font-size: 1.2rem; margin-top: 1.5rem; }
 h3 { font-size: 1.05rem; }
 p { margin: 0 0 .75rem; }
@@ -62,7 +67,7 @@ p { margin: 0 0 .75rem; }
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
 }
-.brand { font-weight: 700; font-size: 1.1rem; color: var(--text); text-decoration: none; display: flex; gap: 6px; align-items: center; }
+.brand { font-family: var(--serif); font-weight: 600; font-size: 1.2rem; color: var(--text); text-decoration: none; display: flex; gap: 6px; align-items: center; }
 .top-info { font-size: .85rem; color: var(--muted); text-align: right; }
 
 main { max-width: 640px; margin: 0 auto; padding: 16px; outline: none; }
@@ -78,9 +83,9 @@ main { max-width: 640px; margin: 0 auto; padding: 16px; outline: none; }
   display: flex; flex-direction: column; align-items: center; gap: 2px;
   padding: 8px 0 10px; font-size: .72rem; color: var(--muted); text-decoration: none;
 }
-.tabs a span { font-size: 1.3rem; line-height: 1; filter: grayscale(.6); }
+.tabs a span { font-size: 1.3rem; line-height: 1; filter: grayscale(1); opacity: .7; }
 .tabs a.active { color: var(--accent); font-weight: 600; }
-.tabs a.active span { filter: none; }
+.tabs a.active span { filter: grayscale(1); opacity: 1; }
 
 .card {
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
@@ -127,10 +132,10 @@ main { max-width: 640px; margin: 0 auto; padding: 16px; outline: none; }
 .switch input { width: 22px; height: 22px; accent-color: var(--accent); }
 
 /* Podsumowanie budżetu */
-.budget-big { font-size: 2rem; font-weight: 800; letter-spacing: -.02em; }
+.budget-big { font-family: var(--serif); font-size: 2.2rem; font-weight: 600; letter-spacing: -.01em; }
 .bar { height: 10px; background: var(--surface-2); border-radius: 999px; overflow: hidden; margin: 10px 0 6px; }
 .bar > i { display: block; height: 100%; background: var(--ok); border-radius: 999px; }
-.bar.over > i { background: var(--warn); }
+.bar.over > i { background: var(--rose); }
 .pill { display: inline-block; font-size: .75rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
 .pill.ok { background: var(--ok-soft); color: var(--ok); }
 .pill.warn { background: var(--warn-soft); color: var(--warn); }
@@ -139,7 +144,7 @@ main { max-width: 640px; margin: 0 auto; padding: 16px; outline: none; }
 
 /* Danie */
 .dish { display: grid; grid-template-columns: 48px 1fr; gap: 12px; align-items: start; }
-.emoji { font-size: 1.8rem; width: 48px; height: 48px; display: grid; place-items: center; background: var(--surface-2); border-radius: 12px; }
+.emoji { filter: saturate(.55); font-size: 1.8rem; width: 48px; height: 48px; display: grid; place-items: center; background: var(--surface-2); border-radius: 12px; }
 .dish h3 { margin: 0 0 2px; }
 .dish .meta { font-size: .85rem; color: var(--muted); }
 .dish .row { margin-top: 10px; }
@@ -153,7 +158,7 @@ main { max-width: 640px; margin: 0 auto; padding: 16px; outline: none; }
 .day li + li { margin-top: 2px; }
 
 /* Lista zakupów */
-.shop-group h2 { font-size: .85rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 18px 0 6px; }
+.shop-group h2 { font-family: inherit; font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 18px 0 6px; }
 .item { display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: start; padding: 12px; border-bottom: 1px solid var(--line); }
 .item:last-child { border-bottom: 0; }
 .item input { width: 22px; height: 22px; margin-top: 1px; accent-color: var(--ok); }
@@ -213,3 +218,7 @@ details.recipe .body { padding: 0 16px 16px; }
 
 .empty { text-align: center; padding: 40px 16px; }
 .empty .big { font-size: 3rem; }
+
+.logo { width: 26px; height: 26px; display: block; }
+.tabs a.active::before { content: ""; position: absolute; top: 0; width: 24px; height: 2px; border-radius: 2px; background: var(--accent); }
+.tabs a { position: relative; }

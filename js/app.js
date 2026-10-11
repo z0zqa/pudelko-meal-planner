@@ -100,8 +100,8 @@ function renderPlan() {
       <div class="muted small">Budżet ${fmtZl(s.budget)} · ok. ${fmtZl(list.total / (s.days * s.people))} na osobę dziennie</div>
       ${left < 0 ? `<p class="notice" style="margin:12px 0 0">Nie udało się zmieścić w budżecie. To najtańszy plan, jaki da się ułożyć z tych przepisów. Spróbuj krótszego okresu albo wyłącz śniadania.</p>` : ''}
       <div class="row" style="margin-top:14px">
-        <a class="btn primary" href="#zakupy">🛒 Lista zakupów</a>
-        <a class="btn" href="#gotowanie">🍳 Gotowanie</a>
+        <a class="btn primary" href="#zakupy">Lista zakupów</a>
+        <a class="btn" href="#gotowanie">Gotowanie</a>
       </div>
     </section>
 
@@ -114,8 +114,8 @@ function renderPlan() {
     <div class="days">${Array.from({ length: s.days }, (_, d) => dayRow(d)).join('')}</div>
 
     <div class="row" style="margin:20px 0 8px">
-      <button class="btn" data-action="reroll">🎲 Wylosuj inne dania</button>
-      <button class="btn" data-action="edit">⚙️ Zmień ustawienia</button>
+      <button class="btn" data-action="reroll">Wylosuj inne dania</button>
+      <button class="btn" data-action="edit">Zmień ustawienia</button>
       <button class="btn ghost" data-action="new-plan">Nowy plan</button>
     </div>`;
 }
@@ -135,7 +135,7 @@ function dishCard(m, i) {
         <div class="meta">${portionsTxt(m.portions)} · ${daysRange(m.days)} · ok. ${fmtZl(costPerPortion(r))}/porcja</div>
         ${tags.length ? `<div class="row" style="margin-top:6px">${tags.join('')}</div>` : ''}
         <div class="row">
-          <button class="btn small" data-action="swap" data-i="${i}">🔀 Zamień</button>
+          <button class="btn small" data-action="swap" data-i="${i}">Zamień</button>
           <button class="btn small ghost" data-action="recipe" data-id="${r.id}">Przepis</button>
         </div>
       </div>
@@ -182,7 +182,7 @@ function renderForm() {
       </div>
       <div class="field">
         <div class="label">Co jesz?</div>
-        <div class="chips">${dietChip('all', 'Wszystko')}${dietChip('wege', '🥕 Wege')}${dietChip('wegan', '🌱 Wegańskie')}</div>
+        <div class="chips">${dietChip('all', 'Wszystko')}${dietChip('wege', 'Wege')}${dietChip('wegan', 'Wegańskie')}</div>
         <label class="switch"><span>Bez glutenu</span><input type="checkbox" name="glutenFree" ${s.glutenFree ? 'checked' : ''}></label>
         <label class="switch"><span>Planuj też śniadania</span><input type="checkbox" name="breakfasts" ${s.breakfasts ? 'checked' : ''}></label>
       </div>
@@ -231,7 +231,7 @@ function renderShopping() {
     <div class="card">
       <div class="sum"><span>Razem</span><span>${fmtZl(list.total)}</span></div>
       <div class="muted small">Zostało do kupienia: ${fmtZl(remaining)} · ${toBuy.filter((it) => !state.checked[it.id]).length} z ${toBuy.length} pozycji</div>
-      <div class="row" style="margin-top:12px"><button class="btn small" data-action="copy-list">📋 Skopiuj listę</button></div>
+      <div class="row" style="margin-top:12px"><button class="btn small" data-action="copy-list">Skopiuj listę</button></div>
     </div>
     ${Object.keys(CATEGORIES).filter((c) => groups[c]?.some((it) => it.packs > 0)).map((c) => `
       <section class="shop-group">

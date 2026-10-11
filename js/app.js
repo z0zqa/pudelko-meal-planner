@@ -18,6 +18,10 @@ function load() {
     fridge: saved.fridge || {},
     checked: saved.checked || {},
     done: saved.done || {},
+    // Ile czego dodało do lodówki odhaczenie zakupu i ile zabrało oznaczenie dania jako ugotowane,
+    // żeby odznaczenie mogło to cofnąć.
+    bought: saved.bought || {},
+    consumed: saved.consumed || {},
     recipeFilter: 'obiad',
     recipeSource: 'all',
     recipeQuery: '',
@@ -301,6 +305,8 @@ function makePlan() {
   state.plan = { settings: s, meals: res.meals, start: today.getTime(), fridge: { ...state.fridge } };
   state.checked = {};
   state.done = {};
+  state.bought = {};
+  state.consumed = {};
   state.editing = false;
   save();
 }
@@ -321,6 +327,7 @@ function renderShopping() {
     <div class="card">
       <div class="sum"><span>Razem</span><span>${fmtZl(list.total)}</span></div>
       <div class="muted small">Zostało do kupienia: ${fmtZl(remaining)} · ${toBuy.filter((it) => !state.checked[it.id]).length} z ${toBuy.length} pozycji</div>
+      <div class="muted small" style="margin-top:4px">Odhaczone produkty trafiają do <a href="#lodowka">lodówki</a>.</div>
       <div class="row" style="margin-top:12px"><button class="btn small" data-action="copy-list">Wyślij / skopiuj listę</button></div>
     </div>
     ${Object.keys(CATEGORIES).filter((c) => groups[c]?.some((it) => it.packs > 0)).map((c) => `
@@ -404,8 +411,8 @@ function cookCard({ m, b, bi }) {
         </div>
       </div>
       <ul class="ing-list">${Object.entries(r.ing).map(([id, q]) => `<li>${INGREDIENTS[buyId(id, state.plan.settings)].name}${INGREDIENTS[id].unit === 'szczypta' ? '' : ` — ${fmtQty(scaled(id, q, f), INGREDIENTS[id].unit)}`}</li>`).join('')}</ul>
-      ${r.source ? `<div class="row" style="margin-top:10px">${aniaBtn(r)}
-        <label class="row small" style="gap:6px"><input type="checkbox" data-action="step-done" data-k="${key}:all" ${cooked ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--ok)"> Ugotowane</label></div>` : ''}
+      <div class="row" style="margin-top:10px">${r.source ? aniaBtn(r) : ''}
+        <label class="row small" style="gap:6px"><input type="checkbox" data-action="cooked" data-k="${key}" data-m="${state.plan.meals.indexOf(m)}" data-b="${bi}" ${cooked ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--ok)"> Ugotowane (zdejmij składniki z lodówki)</label></div>
       <ol class="steps">${steps.map(([txt, min], i) => {
         const done = state.done[`${key}:${i}`];
         return `<li class="${done ? 'done' : ''}"><input type="checkbox" data-action="step-done" data-k="${key}:${i}" ${done ? 'checked' : ''} aria-label="Krok ${i + 1}"><span>${txt}</span><span class="min">${min} min</span></li>`;
@@ -420,6 +427,7 @@ function renderFridge() {
   return `
     <h1>Lodówka</h1>
     <p class="muted">Wpisz, co już masz. Nowy plan wykorzysta te produkty i nie każe ich kupować drugi raz.</p>
+    <p class="muted small">Produkty odhaczone na liście zakupów trafiają tu same. Gdy w Gotowaniu oznaczysz danie jako ugotowane, jego składniki znikną z lodówki.</p>
     <form id="fridge-form" class="card">
       <label for="fridge-q" class="label" style="display:block;font-weight:600;margin-bottom:6px">Dodaj produkt</label>
       <input class="input" id="fridge-q" name="q" type="text" autocomplete="off" autocapitalize="none" enterkeyhint="done"
@@ -433,7 +441,6 @@ function renderFridge() {
         <span class="qty"><input type="number" inputmode="decimal" min="0" step="any" value="${round2(q)}" data-action="fridge-qty" data-id="${id}" aria-label="Ilość: ${INGREDIENTS[id].name}"><span>${INGREDIENTS[id].unit}</span></span>
         <button class="icon-btn" data-action="fridge-del" data-id="${id}" aria-label="Usuń ${INGREDIENTS[id].name}">✕</button>
       </div>`).join('')}</div>` : '<div class="card soft muted" style="margin-top:16px">Lodówka jest pusta.</div>'}
-    ${state.plan ? `<p class="muted small">Gdy zaczniesz nowy plan, zapytamy, czy przenieść tutaj resztki z obecnych zakupów.</p>` : ''}
     ${entries.length ? '<button class="btn ghost" data-action="fridge-clear">Wyczyść lodówkę</button>' : ''}`;
 }
 
@@ -632,33 +639,79 @@ function openRecipe(id) {
     ${recipeBody(r)}`);
 }
 
+// Partie dań z planu, które nie są jeszcze oznaczone jako ugotowane.
+function uncookedBatches() {
+  const out = [];
+  state.plan.meals.forEach((m, mi) => m.batches.forEach((b, bi) => {
+    if (!state.done[`${m.recipeId}#${bi}:all`]) out.push({ m, mi, b, bi });
+  }));
+  return out;
+}
+
 function openNewPlan() {
-  const leftovers = shopping().items.filter((it) => it.leftover > 0 && !(it.unit === 'szt' && it.leftover < 0.5));
-  if (!leftovers.length) return startNewPlan(false);
+  const left = uncookedBatches();
+  if (!left.length || !Object.keys(state.bought).length) return startNewPlan(false);
   openSheet(`
-    <h2 style="margin-top:0">Przenieść resztki do lodówki?</h2>
-    <p class="muted">Po tym planie zostanie Ci: ${leftovers.map((it) => `${it.name} (${fmtQty(it.leftover, it.unit)})`).join(', ')}.</p>
-    <p class="muted small">Kolejny plan je wykorzysta i nie każe kupować ich ponownie.</p>
+    <h2 style="margin-top:0">Czy obecny plan jest już ugotowany?</h2>
+    <p class="muted">Nieoznaczone dania: ${[...new Set(left.map((x) => recipeById[x.m.recipeId].name))].join(', ')}.</p>
+    <p class="muted small">Jeśli tak, zdejmiemy ich składniki z lodówki, żeby nowy plan nie liczył na produkty, których już nie masz.</p>
     <div class="stack">
-      <button class="btn primary block" data-action="new-plan-go" data-keep="1">Tak, przenieś resztki</button>
-      <button class="btn block" data-action="new-plan-go" data-keep="0">Nie, zacznij od zera</button>
+      <button class="btn primary block" data-action="new-plan-go" data-keep="1">Tak, zdejmij ich składniki z lodówki</button>
+      <button class="btn block" data-action="new-plan-go" data-keep="0">Nie, zostaw lodówkę bez zmian</button>
     </div>`);
 }
 
-function startNewPlan(keep) {
-  if (keep) {
-    for (const it of shopping().items) {
-      if (it.leftover > 0) state.fridge[it.id] = round2(it.leftover);
-      else delete state.fridge[it.id];
-    }
-  }
+function startNewPlan(consumeRest) {
+  if (consumeRest) for (const x of uncookedBatches()) consumeBatch(x.m, x.b, `${x.m.recipeId}#${x.bi}`);
   state.plan = null;
   state.checked = {};
   state.done = {};
+  state.bought = {};
+  state.consumed = {};
   save();
   if (sheet.open) sheet.close();
   location.hash = '#plan';
   route();
+}
+
+// Odhaczenie zakupu: kupiona ilość (całe opakowania) trafia do lodówki.
+function markBought(id, on) {
+  const it = shopping().items.find((x) => x.id === id);
+  if (!it) return;
+  if (on) {
+    const amt = round2(it.packs * it.pack);
+    state.bought[id] = amt;
+    state.fridge[id] = round2((state.fridge[id] || 0) + amt);
+    toast(`Do lodówki: ${it.name}, ${fmtQty(amt, it.unit)}`);
+  } else {
+    const left = round2((state.fridge[id] || 0) - (state.bought[id] || 0));
+    if (left > 0) state.fridge[id] = left; else delete state.fridge[id];
+    delete state.bought[id];
+  }
+}
+
+// Ugotowane danie zabiera z lodówki swoje składniki (tyle, ile w niej jest).
+function consumeBatch(m, b, key) {
+  const r = recipeById[m.recipeId];
+  const f = (b.portions * (m.factor || 1)) / r.serves;
+  const taken = {};
+  for (const [id, q] of Object.entries(r.ing)) {
+    if (INGREDIENTS[id].pantry) continue;
+    const bid = buyId(id, state.plan.settings);
+    const take = Math.min(state.fridge[bid] || 0, scaled(id, q, f));
+    if (take <= 0) continue;
+    taken[bid] = round2(take);
+    const left = round2(state.fridge[bid] - take);
+    if (left > 0.001) state.fridge[bid] = left; else delete state.fridge[bid];
+  }
+  state.consumed[key] = taken;
+  state.done[`${key}:all`] = true;
+}
+
+function unconsumeBatch(key) {
+  for (const [id, q] of Object.entries(state.consumed[key] || {})) state.fridge[id] = round2((state.fridge[id] || 0) + q);
+  delete state.consumed[key];
+  delete state.done[`${key}:all`];
 }
 
 // ── Zdarzenia ──
@@ -676,7 +729,7 @@ document.addEventListener('click', async (e) => {
   const el = e.target.closest('[data-action]');
   if (!el) return;
   const a = el.dataset.action;
-  if (['check', 'step-done', 'fridge-qty'].includes(a)) return; // obsługiwane przez "change"
+  if (['check', 'step-done', 'fridge-qty', 'cooked'].includes(a)) return; // obsługiwane przez "change"
   const s = state.settings;
   switch (a) {
     case 'preset': readForm(); s.budget = +el.dataset.v; break;
@@ -705,6 +758,7 @@ document.addEventListener('click', async (e) => {
       const o = swapOptions(state.plan, +el.dataset.i, state.plan.fridge).find((x) => x.recipe.id === el.dataset.id);
       state.plan.meals = o.meals;
       state.done = {};
+      state.consumed = {};
       save();
       sheet.close();
       toast(`Zamieniono na: ${o.recipe.name}`);
@@ -741,6 +795,13 @@ document.addEventListener('change', (e) => {
   const a = el.dataset.action;
   if (a === 'check') {
     if (el.checked) state.checked[el.dataset.id] = true; else delete state.checked[el.dataset.id];
+    markBought(el.dataset.id, el.checked);
+  } else if (a === 'cooked') {
+    const m = state.plan.meals[+el.dataset.m];
+    if (el.checked) {
+      consumeBatch(m, m.batches[+el.dataset.b], el.dataset.k);
+      toast(`Zdjęto z lodówki składniki: ${recipeById[m.recipeId].name}`);
+    } else unconsumeBatch(el.dataset.k);
   } else if (a === 'step-done') {
     if (el.checked) state.done[el.dataset.k] = true; else delete state.done[el.dataset.k];
   } else if (a === 'fridge-qty') {

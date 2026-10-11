@@ -1,0 +1,205 @@
+import { INGREDIENTS, RECIPES } from './data.js';
+
+export const recipeById = Object.fromEntries(RECIPES.map((r) => [r.id, r]));
+
+export function round2(x) {
+  return Math.round(x * 100) / 100;
+}
+
+export function fitsDiet(recipe, s) {
+  if (s.diet === 'wege' && !recipe.tags.includes('wege')) return false;
+  if (s.diet === 'wegan' && !recipe.tags.includes('wegan')) return false;
+  if (s.glutenFree && !recipe.tags.includes('bezgl')) return false;
+  if (s.excluded?.includes(recipe.id)) return false;
+  return true;
+}
+
+export function candidates(type, s) {
+  return RECIPES.filter((r) => r.type === type && fitsDiet(r, s));
+}
+
+// Ile różnych dań na dany okres: obiady co ~2-3 dni, śniadania co ~4 dni.
+export function dishCount(type, days) {
+  if (type === 'obiad') return Math.min(6, Math.max(1, Math.ceil(days / 2.5)));
+  return Math.min(4, Math.max(1, Math.ceil(days / 4)));
+}
+
+function splitDays(days, k) {
+  const base = Math.floor(days / k);
+  const extra = days % k;
+  return Array.from({ length: k }, (_, i) => base + (i < extra ? 1 : 0));
+}
+
+// Rozkłada dania na kolejne dni: najpierw te, które najkrócej wytrzymują w lodówce.
+// Każde danie dzieli się na partie (batches): gotujesz wszystko pierwszego dnia, a jeśli danie
+// nie dotrwa do końca, a nie da się go mrozić, kolejną partię gotujesz świeżo w trakcie tygodnia.
+export function schedule(recipeIds, type, days, people) {
+  const counts = splitDays(days, recipeIds.length);
+  const sorted = [...recipeIds].sort((a, b) => recipeById[a].keeps - recipeById[b].keeps);
+  let day = 0;
+  return sorted.map((id, i) => {
+    const r = recipeById[id];
+    const ds = Array.from({ length: counts[i] }, (_, j) => day + j);
+    day += counts[i];
+    return { recipeId: id, type, days: ds, portions: counts[i] * people, batches: batches(r, ds, people) };
+  });
+}
+
+function batches(r, ds, people) {
+  const last = ds[ds.length - 1] + 1;
+  if (last <= r.keeps || r.freezes) {
+    return [{ days: ds, cookDay: 0, portions: ds.length * people, freeze: last > r.keeps }];
+  }
+  const out = [];
+  let i = 0;
+  for (const size of splitDays(ds.length, Math.ceil(ds.length / r.keeps))) {
+    const chunk = ds.slice(i, (i += size));
+    const cookDay = chunk[chunk.length - 1] + 1 <= r.keeps ? 0 : chunk[0];
+    out.push({ days: chunk, cookDay, portions: chunk.length * people, freeze: false });
+  }
+  return out;
+}
+
+export function cookDays(meals) {
+  return [...new Set(meals.flatMap((m) => m.batches.map((b) => b.cookDay)))].sort((a, b) => a - b);
+}
+
+export function scaled(id, q, factor) {
+  return INGREDIENTS[id].whole ? Math.ceil(q * factor - 0.01) : q * factor;
+}
+
+export function needs(meals) {
+  const out = {};
+  for (const m of meals) {
+    const r = recipeById[m.recipeId];
+    const factor = m.portions / r.serves;
+    for (const [id, q] of Object.entries(r.ing)) out[id] = (out[id] || 0) + scaled(id, q, factor);
+  }
+  return out;
+}
+
+export function shoppingList(meals, fridge = {}) {
+  const need = needs(meals);
+  const items = [];
+  const pantry = [];
+  let total = 0;
+  for (const [id, qty] of Object.entries(need)) {
+    const ing = INGREDIENTS[id];
+    if (ing.pantry) {
+      pantry.push({ id, ...ing, need: qty });
+      continue;
+    }
+    const have = fridge[id] || 0;
+    const missing = Math.max(0, qty - have);
+    // Tolerancja 3%: nie kupuj drugiego opakowania przez kilka gramów.
+    const packs = missing > 0 ? Math.ceil(missing / ing.pack - 0.03) || 1 : 0;
+    const cost = packs * ing.price;
+    total += cost;
+    items.push({
+      id, ...ing, need: qty, have, packs, cost,
+      leftover: Math.max(0, have + packs * ing.pack - qty),
+    });
+  }
+  return { items, pantry, total: round2(total) };
+}
+
+export function planCost(meals, fridge) {
+  return shoppingList(meals, fridge).total;
+}
+
+// Szacowany koszt porcji: cena proporcjonalna do zużytej ilości (bez zaokrąglania do opakowań).
+export function costPerPortion(recipe) {
+  let c = 0;
+  for (const [id, q] of Object.entries(recipe.ing)) {
+    const ing = INGREDIENTS[id];
+    if (!ing.pantry) c += (q / ing.pack) * ing.price;
+  }
+  return c / recipe.serves;
+}
+
+function sample(arr, k, rng) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a.slice(0, k);
+}
+
+export function buildMeals(dinnerIds, breakfastIds, s) {
+  const meals = schedule(dinnerIds, 'obiad', s.days, s.people);
+  if (breakfastIds.length) meals.push(...schedule(breakfastIds, 'sniadanie', s.days, s.people));
+  return meals;
+}
+
+// Losuje wiele kombinacji dań i wybiera taką, która mieści się w budżecie.
+// Składniki liczone w całych opakowaniach, więc dania dzielące produkty wychodzą taniej.
+export function generatePlan(s, fridge = {}, rng = Math.random, tries = 2500) {
+  const dinners = candidates('obiad', s);
+  const breakfasts = s.breakfasts ? candidates('sniadanie', s) : [];
+  if (!dinners.length) return { error: 'Brak przepisów pasujących do wybranej diety.' };
+
+  const kd = Math.min(dishCount('obiad', s.days), dinners.length);
+  const kb = s.breakfasts ? Math.min(dishCount('sniadanie', s.days), breakfasts.length) : 0;
+
+  const seen = new Set();
+  const results = [];
+  for (let t = 0; t < tries; t++) {
+    const d = sample(dinners, kd, rng).map((r) => r.id).sort();
+    const b = sample(breakfasts, kb, rng).map((r) => r.id).sort();
+    const key = d.join(',') + '|' + b.join(',');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const meals = buildMeals(d, b, s);
+    const cost = planCost(meals, fridge);
+    // Każde dodatkowe gotowanie w tygodniu to kara w rankingu — wolimy jedną sesję meal prep.
+    results.push({ meals, cost, score: cost + 5 * (cookDays(meals).length - 1) });
+  }
+
+  results.sort((a, b) => a.score - b.score);
+  const within = results.filter((r) => r.cost <= s.budget);
+  let pick;
+  if (within.length) {
+    // Losowo spośród mieszczących się w budżecie, z lekką preferencją tańszych.
+    const pool = within.slice(0, Math.max(1, Math.ceil(within.length * 0.6)));
+    pick = pool[Math.floor(rng() * pool.length)];
+  } else {
+    pick = results.reduce((a, b) => (b.cost < a.cost ? b : a));
+  }
+  return { meals: pick.meals, cost: pick.cost, overBudget: pick.cost > s.budget };
+}
+
+// Propozycje zamiany jednego dania, posortowane od najtańszego planu.
+export function swapOptions(plan, index, fridge = {}) {
+  const s = plan.settings;
+  const current = plan.meals[index];
+  const used = new Set(plan.meals.filter((m) => m.type === current.type).map((m) => m.recipeId));
+  return candidates(current.type, s)
+    .filter((r) => !used.has(r.id))
+    .map((r) => {
+      const meals = replaceMeal(plan, index, r.id);
+      return { recipe: r, meals, cost: planCost(meals, fridge) };
+    })
+    .sort((a, b) => a.cost - b.cost);
+}
+
+export function replaceMeal(plan, index, newId) {
+  const ids = plan.meals.map((m, i) => (i === index ? newId : m.recipeId));
+  const ofType = (t) => ids.filter((_, i) => plan.meals[i].type === t);
+  return buildMeals(ofType('obiad'), ofType('sniadanie'), plan.settings);
+}
+
+export function fmtQty(q, unit) {
+  if (unit === 'g' || unit === 'ml') {
+    if (q >= 1000) return `${round2(q / 1000).toString().replace('.', ',')} ${unit === 'g' ? 'kg' : 'l'}`;
+    return `${Math.round(q)} ${unit}`;
+  }
+  if (unit === 'szczypta') return '';
+  const r = Math.round(q * 4) / 4;
+  const txt = { 0.25: '¼', 0.5: '½', 0.75: '¾' }[r] ?? r.toString().replace('.', ',');
+  return `${txt} ${unit}`;
+}
+
+export function fmtZl(x) {
+  return `${x.toFixed(2).replace('.', ',')} zł`;
+}

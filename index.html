@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Pudełko · plan posiłków na budżet</title>
+  <meta name="description" content="Wpisz, ile chcesz wydać i na ile dni. Pudełko dobierze dania, policzy zakupy i rozpisze gotowanie.">
+  <meta name="theme-color" content="#fff8ee" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1a1613" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Pudełko">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <a href="#plan" class="brand"><span class="logo">🥡</span> Pudełko</a>
+    <span id="top-info" class="top-info"></span>
+  </header>
+
+  <main id="view" tabindex="-1"></main>
+
+  <nav class="tabs" aria-label="Nawigacja">
+    <a href="#plan" data-tab="plan"><span>📅</span>Plan</a>
+    <a href="#zakupy" data-tab="zakupy"><span>🛒</span>Zakupy</a>
+    <a href="#gotowanie" data-tab="gotowanie"><span>🍳</span>Gotowanie</a>
+    <a href="#lodowka" data-tab="lodowka"><span>🧊</span>Lodówka</a>
+    <a href="#przepisy" data-tab="przepisy"><span>📖</span>Przepisy</a>
+  </nav>
+
+  <dialog id="sheet" class="sheet"></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

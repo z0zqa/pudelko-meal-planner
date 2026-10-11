@@ -1,0 +1,14 @@
+{
+  "name": "Pudełko · plan posiłków na budżet",
+  "short_name": "Pudełko",
+  "description": "Wpisz, ile chcesz wydać i na ile dni. Pudełko dobierze dania, policzy zakupy i rozpisze gotowanie.",
+  "lang": "pl",
+  "start_url": "./#plan",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fff8ee",
+  "theme_color": "#fff8ee",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

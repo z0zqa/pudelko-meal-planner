@@ -1,1 +1,30 @@
-# food
+# Pudełko 🥡
+
+Planer posiłków na budżet, podobny do [prepka.pl](https://prepka.pl). Wpisujesz, ile chcesz wydać i na ile dni, a aplikacja:
+
+- **Plan**: dobiera obiady (i opcjonalnie śniadania) tak, żeby zakupy zmieściły się w budżecie. Każde danie można zamienić i od razu widać, jak zmieni się koszt zakupów.
+- **Zakupy**: liczy listę zakupów w **całych opakowaniach**, z cenami, z podziałem na działy sklepu. Pokazuje, ile czego zostanie. Listę możesz odhaczać i skopiować.
+- **Gotowanie**: rozpisuje meal prep: co gotujesz pierwszego dnia, co w trakcie tygodnia (gdy danie nie wytrzyma w lodówce), co mrozisz. Kroki można odhaczać.
+- **Lodówka**: produkty, które już masz. Nowy plan je wykorzysta, a resztki z poprzedniego planu trafiają tu jednym kliknięciem.
+- **Przepisy**: 26 przepisów (obiady i śniadania), filtry wege, wegańskie i bez glutenu.
+
+Bez konta, bez reklam, dane zostają w przeglądarce (localStorage). Działa offline i można ją zainstalować na telefonie (PWA).
+
+## Uruchomienie
+
+Wystarczy dowolny serwer plików statycznych:
+
+```sh
+python3 -m http.server 8000
+# otwórz http://localhost:8000
+```
+
+Można też opublikować przez GitHub Pages (Settings → Pages → branch `main`, folder `/`).
+
+## Jak to działa
+
+- `js/data.js`: produkty (wielkość opakowania i orientacyjna cena) oraz przepisy (składniki na N porcji, kroki, ile dni wytrzymuje w lodówce, czy się mrozi).
+- `js/planner.js`: algorytm. Losuje kilka tysięcy kombinacji dań, dla każdej liczy koszt zakupów w całych opakowaniach (minus to, co masz w lodówce) i wybiera losowo spośród tańszych planów mieszczących się w budżecie. Dania, które dzielą składniki, wychodzą więc taniej. Plany wymagające dodatkowego gotowania w tygodniu dostają karę w rankingu.
+- `js/app.js`: interfejs (czysty JavaScript, bez frameworka i bez kroku budowania).
+
+Ceny są orientacyjne. Żeby je zaktualizować, zmień pole `price` w `js/data.js`.

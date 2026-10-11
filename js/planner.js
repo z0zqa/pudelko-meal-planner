@@ -1,7 +1,11 @@
 import { INGREDIENTS, RECIPES } from './data.js';
 import { ANIA_RECIPES } from './recipes-ania.js';
+import { LIDL_RECIPES } from './recipes-lidl.js';
 
-export const ALL_RECIPES = [...RECIPES, ...ANIA_RECIPES];
+export const ALL_RECIPES = [...RECIPES, ...ANIA_RECIPES, ...LIDL_RECIPES];
+// Źródło przepisu: 'own' (wbudowane), 'ania', 'lidl'.
+export const siteOf = (r) => r.site || (r.source ? 'ania' : 'own');
+export const SITES = { ania: { label: 'Ania Gotuje', link: 'Przepis u Ani' }, lidl: { label: 'Kuchnia Lidla', link: 'Przepis w Kuchni Lidla' } };
 export const recipeById = Object.fromEntries(ALL_RECIPES.map((r) => [r.id, r]));
 
 export function round2(x) {
@@ -13,8 +17,7 @@ export function fitsDiet(recipe, s) {
   if (s.diet === 'wegan' && !recipe.tags.includes('wegan')) return false;
   if (s.glutenFree && !recipe.tags.includes('bezgl')) return false;
   if (s.excluded?.includes(recipe.id)) return false;
-  if (s.source === 'own' && recipe.source) return false;
-  if (s.source === 'ania' && !recipe.source) return false;
+  if (s.source && s.source !== 'all' && siteOf(recipe) !== s.source) return false;
   return true;
 }
 

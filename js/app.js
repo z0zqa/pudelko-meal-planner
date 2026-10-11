@@ -1,6 +1,6 @@
 import { INGREDIENTS, CATEGORIES, TAG_LABELS } from './data.js';
 import {
-  ALL_RECIPES, recipeById, scaled, nutrition, dayNutrition, generatePlan, MEAL_SHARE, shoppingList, swapOptions, costPerPortion, cookDays,
+  ALL_RECIPES, siteOf, SITES, recipeById, scaled, nutrition, dayNutrition, generatePlan, MEAL_SHARE, shoppingList, swapOptions, costPerPortion, cookDays,
   fmtQty, fmtZl, round2,
 } from './planner.js';
 
@@ -102,7 +102,7 @@ function renderPlan() {
       <div class="bar ${left < 0 ? 'over' : ''}"><i style="width:${pct}%"></i></div>
       <div class="muted small">Budżet ${fmtZl(s.budget)} · ok. ${fmtZl(list.total / (s.days * s.people))} na osobę dziennie</div>
       ${nutritionSummary(p)}
-      ${left < 0 ? `<p class="notice" style="margin:12px 0 0">Nie udało się zmieścić w budżecie. To najtańszy plan, jaki da się ułożyć z tych przepisów. Spróbuj krótszego okresu albo wyłącz śniadania.</p>` : ''}
+      ${left < 0 ? `<p class="notice" style="margin:12px 0 0">Nie udało się zmieścić w budżecie. To najtańszy plan, jaki da się ułożyć z tych przepisów. Spróbuj krótszego okresu, niższego celu kalorii albo wyłącz śniadania.</p>` : ''}
       <div class="row" style="margin-top:14px">
         <a class="btn primary" href="#zakupy">Lista zakupów</a>
         <a class="btn" href="#gotowanie">Gotowanie</a>
@@ -217,7 +217,7 @@ function renderForm() {
       </div>
       <div class="field">
         <div class="label">Skąd przepisy?</div>
-        <div class="chips">${srcChip('all', 'Wszystkie')}${srcChip('ania', 'Ania Gotuje')}${srcChip('own', 'Wbudowane')}</div>
+        <div class="chips">${srcChip('all', 'Wszystkie')}${srcChip('ania', 'Ania Gotuje')}${srcChip('lidl', 'Kuchnia Lidla')}${srcChip('own', 'Wbudowane')}</div>
       </div>
       <div class="field">
         <label class="switch"><span>Bez glutenu</span><input type="checkbox" name="glutenFree" ${s.glutenFree ? 'checked' : ''}></label>
@@ -331,7 +331,8 @@ function renderCooking() {
 const recipeTime = (r) => r.totalTime || (r.steps || []).reduce((a, s) => a + s[1], 0) || 45;
 const totalTime = (m) => recipeTime(recipeById[m.recipeId]);
 const kcalTxt = (n) => `${n.kcal.toLocaleString('pl-PL')} kcal`;
-const aniaBtn = (r, cls = 'btn small') => `<a class="${cls}" href="${r.source}" target="_blank" rel="noopener">Przepis u Ani ↗</a>`;
+const aniaBtn = (r, cls = 'btn small') => `<a class="${cls}" href="${r.source}" target="_blank" rel="noopener">${SITES[siteOf(r)].link} ↗</a>`;
+const siteTag = (r) => (r.source ? ` · ${SITES[siteOf(r)].label}` : '');
 
 function cookCard({ m, b, bi }) {
   const r = recipeById[m.recipeId];
@@ -398,7 +399,7 @@ function renderRecipes() {
   return `
     <h1>Przepisy</h1>
     <input class="input" type="search" id="recipe-search" placeholder="Szukaj: gulasz, kurczak, naleśniki…" value="${state.recipeQuery.replace(/"/g, '&quot;')}" aria-label="Szukaj przepisu" style="margin-bottom:10px">
-    <div class="chips" style="margin-bottom:8px">${chip('rsource', src, 'all', 'Wszystkie')}${chip('rsource', src, 'ania', 'Ania Gotuje')}${chip('rsource', src, 'own', 'Wbudowane')}</div>
+    <div class="chips" style="margin-bottom:8px">${chip('rsource', src, 'all', 'Wszystkie')}${chip('rsource', src, 'ania', 'Ania Gotuje')}${chip('rsource', src, 'lidl', 'Kuchnia Lidla')}${chip('rsource', src, 'own', 'Wbudowane')}</div>
     <div class="chips" style="margin-bottom:14px">${chip('rfilter', f, 'obiad', 'Obiady')}${chip('rfilter', f, 'sniadanie', 'Śniadania')}${chip('rfilter', f, 'wege', 'Wege')}${chip('rfilter', f, 'wegan', 'Wegańskie')}${chip('rfilter', f, 'bezgl', 'Bez glutenu')}</div>
     <div id="recipe-list">${recipeList()}</div>`;
 }
@@ -410,7 +411,7 @@ function recipeList() {
   const src = state.recipeSource;
   const q = norm(state.recipeQuery.trim());
   const base = ALL_RECIPES.filter((r) =>
-    (r.type === f || r.tags.includes(f)) && (src === 'all' || (src === 'ania') === !!r.source));
+    (r.type === f || r.tags.includes(f)) && (src === 'all' || siteOf(r) === src));
   // Najpierw trafienia w nazwie dania, potem dania z takim składnikiem.
   const list = !q ? base : [
     ...base.filter((r) => norm(r.name).includes(q)),
@@ -422,7 +423,7 @@ function recipeList() {
     ${shown.map((r) => `
       <button class="option" data-action="recipe" data-id="${r.id}">
         <span class="emoji">${r.emoji}</span>
-        <span><strong>${r.name}</strong><br><span class="muted small">ok. ${fmtZl(costPerPortion(r))}/porcja · ${kcalTxt(nutrition(r))} · ${minTxt(recipeTime(r))}${r.source ? ' · Ania Gotuje' : ''}</span></span>
+        <span><strong>${r.name}</strong><br><span class="muted small">ok. ${fmtZl(costPerPortion(r))}/porcja · ${kcalTxt(nutrition(r))} · ${minTxt(recipeTime(r))}${siteTag(r)}</span></span>
         <span></span>
       </button>`).join('')}
     ${list.length > shown.length ? `<button class="btn block" data-action="more">Pokaż więcej (${list.length - shown.length})</button>` : ''}`;
@@ -441,7 +442,7 @@ function recipeBody(r) {
     </div>
     <strong class="small">${r.source ? 'Zakupy' : 'Składniki'} na ${portionsTxt(r.serves)}</strong>
     <ul class="ing-list">${Object.entries(r.ing).map(([id, q]) => `<li>${INGREDIENTS[id].name}${INGREDIENTS[id].unit === 'szczypta' ? '' : ` — ${fmtQty(q, INGREDIENTS[id].unit)}`}</li>`).join('')}</ul>
-    ${r.source ? '<p class="muted small" style="margin-top:8px">Ilości przeliczone na produkty ze sklepu, do listy zakupów. Przyprawy, olej i sposób przygotowania znajdziesz u Ani.</p>' : ''}
+    ${r.source ? '<p class="muted small" style="margin-top:8px">Ilości przeliczone na produkty ze sklepu, do listy zakupów. Przyprawy, olej i sposób przygotowania znajdziesz w oryginale.</p>' : ''}
     ${r.steps ? `<ol style="padding-left:20px;margin:10px 0 0">${r.steps.map(([t, m]) => `<li style="margin-bottom:6px">${t} <span class="muted small">(${m} min)</span></li>`).join('')}</ol>` : ''}`;
 }
 
@@ -468,7 +469,7 @@ function openSwap(i) {
       const d = round2(o.cost - base);
       return `<button class="option" data-action="do-swap" data-i="${i}" data-id="${o.recipe.id}">
         <span class="emoji">${o.recipe.emoji}</span>
-        <span><strong>${o.recipe.name}</strong><br><span class="muted small">${o.recipe.source ? 'Ania Gotuje · ' : ''}${kcalTxt(nutrition(o.recipe))} · ok. ${fmtZl(costPerPortion(o.recipe))}/porcja</span></span>
+        <span><strong>${o.recipe.name}</strong><br><span class="muted small">${o.recipe.source ? `${SITES[siteOf(o.recipe)].label} · ` : ''}${kcalTxt(nutrition(o.recipe))} · ok. ${fmtZl(costPerPortion(o.recipe))}/porcja</span></span>
         <span class="diff ${d < 0 ? 'cheaper' : d > 0 ? 'pricier' : ''}">${d === 0 ? '±0 zł' : `${d > 0 ? '+' : '−'}${fmtZl(Math.abs(d))}`}</span>
       </button>`;
     }).join('') : '<p>Brak innych przepisów pasujących do Twojej diety.</p>'}`);

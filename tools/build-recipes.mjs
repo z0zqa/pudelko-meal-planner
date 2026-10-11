@@ -1,14 +1,12 @@
-// Zamienia data/aniagotuje-raw.json na js/recipes-ania.js w formacie aplikacji.
+// Zamienia pobrane przepisy (data/*-raw.json) na pliki js/recipes-*.js w formacie aplikacji.
 // Składniki z tekstu („2 ząbki czosnku”, „pół szklanki mleka”) są mapowane na produkty z cennika
 // w js/data.js. Przepisy z nierozpoznanym składnikiem są pomijane, żeby koszt planu był rzetelny.
 //
-// Uruchom: node tools/build-ania.mjs [--report]
-import { readFileSync, writeFileSync } from 'node:fs';
+// Uruchom: node tools/build-recipes.mjs [ania|lidl] [--report] [--debug="Nazwa"]
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { INGREDIENTS } from '../js/data.js';
 
 const ROOT = new URL('..', import.meta.url).pathname;
-const raw = JSON.parse(readFileSync(`${ROOT}data/aniagotuje-raw.json`, 'utf8'));
-const REPORT = process.argv.includes('--report');
 
 // W wzorcach poniżej \w i \b działają też dla polskich liter (patrzy funkcja pl()).
 const pl = (re) => new RegExp(re.source
@@ -16,7 +14,7 @@ const pl = (re) => new RegExp(re.source
   .replaceAll('\\b', '(?:(?<=\\p{L}|\\d)(?![\\p{L}\\d])|(?<![\\p{L}\\d])(?=\\p{L}|\\d))'), 'u');
 
 // ── Słownik: wzorzec (na nazwie składnika, małe litery) → id produktu. Kolejność ma znaczenie. ──
-const PANTRY = pl(/\b(sól|soli|solą|pieprz\w*|przypraw\w*|majeran\w*|oregano|tymian\w*|bazyli\w* suszon\w*|suszon\w* bazyli\w*|kmin\w*|kumin\w*|curry|kurkum\w*|cynamon\w*|gałk\w* muszkat\w*|liś\w* laurow\w*|liści\w* laurow\w*|ziel\w* angielsk\w*|ziół|zioła prowansalsk\w*|chili|płatki chili|papryk\w* (słodk|wędzon|ostr|mielon|chili)\w*|(słodk|wędzon|ostr|mielon)\w* papryk\w*|czosn\w* (granulowan|suszon)\w*|imbir\w* mielon\w*|kolendr\w* mielon\w*|lubczyk\w*|rozmaryn\w*|estragon\w*|cząber\w*|jałow\w*|goździk\w*|kardamon\w*|wanili\w*|woda|wody|wodą|wrzątk\w*|lód|kostk\w* lodu|ocet\w*|octu|olej\w*|oliw(a|y|ą|ę)\b|oliwy z oliwek|bulion\w*|wywar\w*|rosoł\w*|kostk\w* rosoł\w*|mąk\w* ziemniaczan\w*|skrobi\w*|proszk\w* do pieczenia|sod\w* oczyszczon\w*|cukr\w* (puder|wanili|trzcin)\w*|cukier|cukru|ksylitol\w*|erytrytol\w*|sos\w* worcester\w*|tabasco|sriracha|natka? ?do dekoracji|żelatyn\w*|sezam\w* do posypania|maggi|vegeta|sos\w* rybn\w*|pasta curry|harissa|erytr\w*|zioł\w*|ziół|anyż\w*|papryczk\w*|chill?i\w*|listk\w* laurow\w*|liste\w* laurow\w*|prosz[e]?k\w* do pieczenia|sod\w*|aromat\w*|smalc\w* do smażenia|łoj\w*|łój|tłuszcz\w*)\b/);
+const PANTRY = pl(/\b(sól|soli|solą|pieprz\w*|przypraw\w*|majeran\w*|oregano|tymian\w*|bazyli\w* suszon\w*|suszon\w* bazyli\w*|kmin\w*|kumin\w*|curry|kurkum\w*|cynamon\w*|gałk\w* muszkat\w*|liś\w* laurow\w*|liści\w* laurow\w*|ziel\w* angielsk\w*|ziół|zioła prowansalsk\w*|chili|płatki chili|papryk\w* (słodk|wędzon|ostr|mielon|chili)\w*|(słodk|wędzon|ostr|mielon)\w* papryk\w*|czosn\w* (granulowan|suszon)\w*|imbir\w* mielon\w*|kolendr\w* mielon\w*|lubczyk\w*|rozmaryn\w*|estragon\w*|cząber\w*|jałow\w*|goździk\w*|kardamon\w*|wanili\w*|woda|wody|wodą|wrzątk\w*|lód|kostk\w* lodu|ocet\w*|octu|olej\w*|oliw(a|y|ą|ę)\b|oliwy z oliwek|bulion\w*|wywar\w*|rosoł\w*|kostk\w* rosoł\w*|mąk\w* ziemniaczan\w*|skrobi\w*|proszk\w* do pieczenia|sod\w* oczyszczon\w*|cukr\w* (puder|wanili|trzcin)\w*|cukier|cukru|ksylitol\w*|erytrytol\w*|sos\w* worcester\w*|tabasco|sriracha|natka? ?do dekoracji|żelatyn\w*|sezam\w* do posypania|maggi|vegeta|sos\w* rybn\w*|pasta curry|harissa|erytr\w*|zioł\w*|ziół|anyż\w*|papryczk\w*|chill?i\w*|listk\w* laurow\w*|liste\w* laurow\w*|prosz[e]?k\w* do pieczenia|sod\w*|aromat\w*|smalc\w* do smażenia|łoj\w*|łój|tłuszcz\w*|szałwi\w*|tymiank\w*|estragon\w*|lubczyk\w*)\b/);
 
 const MAP_SRC = [
   [/mleczk\w* kokos|mleka kokos|mleko kokos/, 'mleczko'],
@@ -40,6 +38,7 @@ const MAP_SRC = [
   [/piersi?\w* z kurczak\w*|filet\w* z kurczak\w*|filet\w* z piersi|pierś\w*|piersi\b|polędwiczk\w* z kurczak/, 'piers'],
   [/udk\w*|udek|udziec\w* z kurczak|uda\b|ud z kurczak|podudzi\w*/, 'udka'],
   [/wątrób\w*/, 'watrobka'],
+  [/kacz\w*|gęś\w*|gęsi\w*|indyczk\w*|jagnię\w*|jagnięc\w*|dziczyzn\w*|sarnin\w*|cielęc\w*|królik\w*/, 'kaczka'],
   [/skrzyd\w*|ćwiart\w*|kurczak\w*|kurczę\w*|tusz\w*|drob\w*|drób/, 'kurczakCaly'],
   [/indyk\w*|indycz\w*/, 'indyk'],
   [/mięs\w* mielon\w*|mielon\w* mięs\w*|mielonego|mielonej/, 'mielone'],
@@ -51,9 +50,9 @@ const MAP_SRC = [
   [/wieprz\w*|karków\w*|schab\w*|łopatk\w*|żeberk\w*|golonk\w*|polędwiczk\w*|kark\w*|mięs\w*/, 'wieprzowina'],
   [/łoso\w*/, 'losos'],
   [/tuńczyk\w*/, 'tunczyk'],
-  [/śledź|śledzi\w*|matias\w*/, 'sledz'],
+  [/śledź|śledzi\w*|matias\w*|anchois|sardyn\w*|szprot\w*/, 'sledz'],
   [/krewet\w*|owoc\w* morza|kalmar\w*|małż\w*/, 'krewetki'],
-  [/dorsz\w*|mintaj\w*|mirun\w*|pstrąg\w*|karp\w*|halibut\w*|morszczuk\w*|tilapi\w*|ryb\w*|makrel\w*|sandacz\w*|dorad\w*|okoń|okoni\w*|filet\w* rybn\w*/, 'rybaBiala'],
+  [/dorsz\w*|mintaj\w*|mirun\w*|pstrąg\w*|karp\w*|halibut\w*|morszczuk\w*|tilapi\w*|ryb\w*|makrel\w*|sandacz\w*|dorad\w*|okoń|okoni\w*|filet\w* rybn\w*|paluszk\w* krab\w*|surimi|tasz\w*|pali\w*|ośmiornic\w*|kalmar\w*|mątw\w*/, 'rybaBiala'],
 
   [/ziemniak\w*|kartofl\w*/, 'ziemniaki'],
   [/batat\w*/, 'batat'],
@@ -64,7 +63,7 @@ const MAP_SRC = [
   [/natk\w*|pietruszk\w* (zielon|natka)|zielon\w* pietruszk/, 'natka'],
   [/pietruszk\w*/, 'pietruszka'],
   [/\bpor(a|u|y|em|ów)?\b|porów/, 'por'],
-  [/seler\w*|kalarep\w*/, 'seler'],
+  [/seler\w*|kalarep\w*|fenku\w*|koper\w* włosk\w*/, 'seler'],
   [/szparag\w*/, 'szparagi'],
   [/chrzan\w*/, 'chrzan'],
   [/kapust\w* kiszon\w*|kiszon\w* kapust\w*/, 'kapustaKiszona'],
@@ -105,9 +104,9 @@ const MAP_SRC = [
   [/awokado/, 'awokado'],
   [/jabłk\w*|jabłek/, 'jablka'],
   [/banan\w*/, 'banany'],
-  [/truskaw\w*|malin\w*|borów\w*|jagód\w*|jagod\w*|wiśni\w*|czereśn\w*|śliw\w*|gruszk\w*|brzoskw\w*|morel\w*|owoc\w*|ananas\w*|mango|kiwi|winogron\w*|żurawin\w*|porzecz\w*|rabarbar\w*|figi|fig\b|nektaryn\w*|konfitur\w*|dżem\w*|powidł\w*/, 'owoce'],
-  [/rodzyn\w*|orzech\w*|migdał\w*|daktyl\w*|bakali\w*|suszon\w* (morel|śliw|żurawin)\w*|nerkowc\w*|pistacj\w*|orzesz\w*|piniow\w*/, 'rodzynki'],
-  [/słonecznik\w*|pestk\w*|sezam\w*|siemi\w*|chia|nasion\w*/, 'pestki'],
+  [/truskaw\w*|malin\w*|borów\w*|jagód\w*|jagod\w*|wiśni\w*|czereśn\w*|śliw\w*|gruszk\w*|brzoskw\w*|morel\w*|owoc\w*|ananas\w*|mango|kiwi|winogron\w*|żurawin\w*|porzecz\w*|rabarbar\w*|figi|fig\b|nektaryn\w*|konfitur\w*|dżem\w*|powidł\w*|grejpfrut\w*|arbuz\w*|melon\w*|granat\w*|mandaryn\w*|klementyn\w*|papaj\w*|marakuj\w*/, 'owoce'],
+  [/rodzyn\w*|orzech\w*|migdał\w*|daktyl\w*|bakali\w*|suszon\w* (morel|śliw|żurawin)\w*|nerkowc\w*|pistacj\w*|orzesz\w*|piniow\w*|wiórk\w*/, 'rodzynki'],
+  [/słonecznik\w*|pestk\w*|sezam\w*|siemi\w*|chia|nasion\w*|\bmak\w*|gorczyc\w*/, 'pestki'],
   [/oliwk\w*|oliwek|kapar\w*/, 'oliwki'],
 
   [/ryż\w*|ryżu/, 'ryz'],
@@ -132,7 +131,8 @@ const MAP_SRC = [
   [/ketchup\w*/, 'ketchup'],
   [/miód|miodu|miodem|syrop\w* (klonow|z agawy|daktylow)/, 'miod'],
   [/kakao/, 'kakao'],
-  [/win(o|a)\b|wina\b/, 'wino'],
+  [/win(o|a)\b|wina\b|piw\w*|rum\b|brandy|sherry|whisk\w*|wódk\w*|tequil\w*|koniak\w*|likier\w*|porto|vermouth|martini/, 'wino'],
+  [/sos\w* (słodko|peri|piri|teriyaki|barbecue|bbq|chili|tzatziki|czosnkow|curry|hoisin|ostrygow)\w*|pesto|ajwar\w*|ajvar|salsa|sos\w* do\b/, 'sosGotowy'],
 ];
 const MAP = MAP_SRC.map(([re, id]) => [pl(re), id]);
 
@@ -140,9 +140,10 @@ const MAP = MAP_SRC.map(([re, id]) => [pl(re), id]);
 const MEASURES_SRC = [
   [/\bcm\b/, 5], [/\bliś\w*|\blist\w*/, 10],
   [/łyżecz\w*/, 5], [/łyż\w*/, 15], [/szklan\w*/, 'cup'], [/garś\w*|garst\w*/, 30], [/ząb\w*/, 5],
-  [/słoi\w*|słoicz\w*/, 300], [/puszk\w*|puszek|opakowa\w*|paczk\w*|kostk\w*|pudełk\w*|kubecz\w*|kubek|kubk\w*/, 'pack'],
+  [/słoi\w*|słoicz\w*/, 300], [/puszk\w*|puszek|opak\w*|opakowa\w*|paczk\w*|kostk\w*|pudełk\w*|kubecz\w*|kubek|kubk\w*/, 'pack'],
   [/łodyg\w*/, 40], [/pęcz\w*/, 'szt'], [/plaster\w*|plastr\w*|plaster/, 20], [/torebk\w*|torebek/, 100], [/kromk\w*/, 35],
   [/szczypt\w*|odrobin\w*|trochę|kilka kropli/, 0], [/(główk|główek)\w*/, 'szt'], [/kawał\w*/, 'half'],
+  [/gałąz\w*|gałązk\w*|łodyżk\w*/, 5], [/\bszt\b|sztuk\w*/, 'szt'],
 ];
 const MEASURES = MEASURES_SRC.map(([re, v]) => [pl(re), v]);
 
@@ -240,9 +241,10 @@ function genericGrams(line) {
   return 0;
 }
 
-function classify(item, groupName) {
+function classify(item, groupName, qtyFirst = false) {
   const name = item.name.toLowerCase();
-  const line = `${name} ${item.qty.toLowerCase()}`;
+  // Lidl podaje „ząbek czosnku - 9 szt.”: liczba musi stać przed miarą, więc ilość idzie na początek.
+  const line = qtyFirst ? `${item.qty.toLowerCase()} ${name}` : `${name} ${item.qty.toLowerCase()}`;
   if (OPTIONAL.test(line) || /dekorac|do podania|opcjonal/i.test(groupName)) return { optional: true };
   const full = name.replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ');
   // Najpierw pierwszy wariant („cebula lub szalotka” → cebula), a jeśli nic nie pasuje — cała nazwa.
@@ -324,7 +326,7 @@ function minutesIn(step) {
 }
 
 // Czy to pełny posiłek, a nie dodatek (surówka, frytki, bulion)? Wymagamy składnika „głównego”.
-const SIDE = /^(frytki|ziemniaki|młode ziemniaki|puree|purée|buraczki|marchew|marchewka|pieczona marchew|mizeria|bulion|wywar|zakwas|sos\b|kapusta zasmażana|fasolka szparagowa|kluski śląskie|ćwikła|kopytka|pieczone ziemniaki|grzanki|dip|pesto|hummus|marynat|panierk|dressing|farsz|ciasto na|baza do)|do obiadu|na ciepło do|dodatek|do smarowania|do karkówki|do grilla|marynat/i;
+const SIDE = /^(frytki|ziemniaki|młode ziemniaki|puree|purée|buraczki|marchew|marchewka|pieczona marchew|mizeria|bulion|wywar|zakwas|sos\b|kapusta zasmażana|fasolka szparagowa|kluski śląskie|ćwikła|kopytka|pieczone ziemniaki|grzanki|dip|pesto|hummus|marynat|panierk|dressing|farsz|ciasto na|baza do)|do obiadu|purée|puree|na ciepło do|dodatek|do smarowania|do karkówki|do grilla|marynat/i;
 const MAIN = {
   obiad: { any: ['jajka', 'ser', 'twarog', 'feta', 'mozzarella', 'parmezan', 'tofu', 'fasola', 'fasolaBiala', 'ciecierzyca', 'soczewica', 'makaron', 'spaghetti', 'ryz', 'kasza', 'kaszaJaglana', 'peczak', 'kuskus', 'bulgur', 'tortilla', 'ciastoFrancuskie', 'bulki', 'chleb', 'serekWiejski'], min: { maka: 150, ziemniaki: 500, groszek: 300 } },
   sniadanie: { any: ['jajka', 'ser', 'twarog', 'feta', 'mozzarella', 'tofu', 'platki', 'chleb', 'bulki', 'tortilla', 'jogurt', 'serekWiejski', 'kasza', 'kaszaJaglana', 'ryz', 'maka', 'kefir', 'ciecierzyca', 'fasola'], min: { mleko: 300 } },
@@ -363,80 +365,146 @@ function portionNutrition(r, ing, mass, pantryMass, pantryKcal, serves) {
 const clean = (t) => String(t ?? '').replace(/[<>]/g, '').replace(/&/g, '&amp;').replace(/\s+/g, ' ').trim();
 
 // ── Konwersja ──
-const DEBUG = process.argv.find((x) => x.startsWith('--debug='))?.slice(8);
-if (DEBUG) {
-  const r = Object.values(raw.recipes).find((x) => x.name === DEBUG);
-  for (const g of r.ingredients) for (const it of g.items) console.log(JSON.stringify(it), '→', JSON.stringify(classify(it, g.name)));
-  process.exit(0);
+// Każde źródło ma własne dane o kategorii, porcjach i wartościach odżywczych.
+const lidlType = (r) => {
+  const c = r.crumbs.join(' ');
+  if (/^(zupy|dania-glowne|fast-food|grill|dania-wegetarianskie|dania-weganskie)/.test(r.crumbs[0] || '')) return 'obiad';
+  if (/sniadania|salatki/.test(c)) return 'sniadanie';
+  return null;
+};
+const lidlNutrition = (r, calc) => {
+  const n = r.nutritionPortion || {};
+  if (n.kcal > 0) {
+    const ratio = n.kcal / Math.max(1, calc.kcal);
+    if (ratio > 0.5 && ratio < 2) return { kcal: Math.round(n.kcal), protein: Math.round(n.protein || calc.protein) };
+  }
+  return { kcal: Math.round(calc.kcal), protein: Math.round(calc.protein) };
+};
+// Lidl nie oznacza diet, więc wyliczamy je ze składników (bez „bez glutenu” — tego nie da się
+// stwierdzić pewnie z samej listy).
+function dietFromIngredients(ing, lines) {
+  const ids = Object.keys(ing);
+  const meat = ids.some((k) => INGREDIENTS[k].cat === 'mieso') || /bulion (drobiow|wołow|mięs)|rosół|smalec|boczek|żelatyn/.test(lines);
+  const animal = meat || ids.some((k) => ['jajka', 'maslo', 'miod', 'majonez'].includes(k) || (INGREDIENTS[k].cat === 'nabial' && k !== 'tofu')) || /masł|mleko|śmietan|jaj|miód/.test(lines);
+  return meat ? [] : animal ? ['wege'] : ['wege', 'wegan'];
 }
 
-const out = [];
-const unknown = new Map();
-const reasons = { type: 0, unknown: 0, empty: 0, side: 0 };
-for (const r of Object.values(raw.recipes)) {
-  const type = dishType(r);
-  if (!type) { reasons.type++; continue; }
-  const ing = {};
-  const missing = [];
-  let pantryMass = 0, pantryKcal = 0;
-  for (const g of r.ingredients) {
-    for (const item of g.items) {
-      const c = classify(item, g.name);
-      if (c.unknown) missing.push(c.unknown);
-      else if (c.id && c.qty > 0) ing[c.id] = (ing[c.id] || 0) + c.qty;
-      else if (c.pantry) { pantryMass += c.grams; pantryKcal += (c.grams * c.kcal100) / 100; }
-    }
+const SOURCES = {
+  ania: {
+    raw: 'data/aniagotuje-raw.json', out: 'js/recipes-ania.js', name: 'ANIA_RECIPES', prefix: 'ag-', site: 'ania',
+    note: 'aniagotuje.pl', qtyFirst: false,
+    type: dishType, servings,
+    nutrition: (r, ing, mass, pm, pk, serves) => portionNutrition(r, ing, mass, pm, pk, serves),
+    tags: (r, ing) => {
+      const kw = `${r.keywords || ''} ${r.diets.join(' ')}`.toLowerCase();
+      const t = [];
+      if (/wegetaria|wegańsk|vegetarian|vegan/.test(kw) && !Object.keys(ing).some((k) => INGREDIENTS[k].cat === 'mieso')) t.push('wege');
+      if (/wegańsk|vegan/.test(kw)) t.push('wegan');
+      if (/bezglutenow|glutenfree/.test(kw)) t.push('bezgl');
+      return t;
+    },
+  },
+  lidl: {
+    raw: 'data/kuchnialidla-raw.json', out: 'js/recipes-lidl.js', name: 'LIDL_RECIPES', prefix: 'kl-', site: 'lidl',
+    note: 'kuchnialidla.pl', qtyFirst: true,
+    type: lidlType,
+    servings: (r) => Math.max(1, Math.min(12, parseInt(r.yield) || 4)),
+    nutrition: (r, ing, mass, pm, pk, serves) => lidlNutrition(r, calcNutrition(ing, pk, serves)),
+    tags: (r, ing) => dietFromIngredients(ing, r.ingredients.flatMap((g) => g.items.map((i) => i.name.toLowerCase())).join(' | ')),
+  },
+};
+
+function calcNutrition(ing, pantryKcal, serves) {
+  let kcal = pantryKcal, protein = 0;
+  for (const [k, q] of Object.entries(ing)) {
+    const I = INGREDIENTS[k];
+    const g = I.unit === 'g' || I.unit === 'ml' ? q : q * (I.gPerSzt || 100);
+    kcal += (g * I.kcal) / 100;
+    protein += (g * I.protein) / 100;
   }
-  if (missing.length) {
-    reasons.unknown++;
-    for (const m of missing) unknown.set(m, (unknown.get(m) || 0) + 1);
+  return { kcal: kcal / serves, protein: protein / serves };
+}
+
+const which = process.argv.slice(2).filter((a) => !a.startsWith('--'));
+const DEBUG = process.argv.find((x) => x.startsWith('--debug='))?.slice(8);
+
+for (const key of which.length ? which : Object.keys(SOURCES)) {
+  const S = SOURCES[key];
+  if (!existsSync(ROOT + S.raw)) { console.log(`${key}: brak ${S.raw}, pomijam`); continue; }
+  const raw = JSON.parse(readFileSync(ROOT + S.raw, 'utf8'));
+
+  if (DEBUG) {
+    const r = Object.values(raw.recipes).find((x) => x.name === DEBUG);
+    if (!r) continue;
+    for (const g of r.ingredients) for (const it of g.items) console.log(JSON.stringify(it), '→', JSON.stringify(classify(it, g.name, S.qtyFirst)));
     continue;
   }
-  if (Object.keys(ing).length < 2) { reasons.empty++; continue; }
-  if (!isMeal(r.name.trim(), ing, type)) { reasons.side++; continue; }
-  for (const k of Object.keys(ing)) ing[k] = Math.round(ing[k] * 100) / 100;
 
-  // Porcje z opisu bywają zawyżone („24 placki”, „pizza 26 cm”) — trzymamy je w rozsądnym
-  // przedziale według łącznej wagi składników.
-  const mass = Object.entries(ing).reduce((a, [k, q]) => {
-    const I = INGREDIENTS[k];
-    return a + (I.unit === 'g' || I.unit === 'ml' ? q : q * (I.gPerSzt || 100));
-  }, 0);
-  const [lo, hi] = type === 'obiad' ? [250, 550] : [120, 350];
-  const serves = Math.max(type === 'obiad' ? 2 : 1, Math.min(12, Math.round(Math.min(Math.max(servings(r, type), mass / hi), mass / lo))));
-  const [keeps, freezes] = shelfLife(r, type);
-  const nutr = portionNutrition(r, ing, mass, pantryMass, pantryKcal, serves);
-  const kw = `${r.keywords || ''} ${r.diets.join(' ')}`.toLowerCase();
-  const tags = [];
-  if (/wegetaria|wegańsk|vegetarian|vegan/.test(kw) && !Object.keys(ing).some((k) => INGREDIENTS[k].cat === 'mieso')) tags.push('wege');
-  if (/wegańsk|vegan/.test(kw)) tags.push('wegan');
-  if (/bezglutenow|glutenfree/.test(kw)) tags.push('bezgl');
-  const lower = r.name.toLowerCase();
-  out.push({
-    id: `ag-${r.url.split('/').pop()}`,
-    name: clean(r.name),
-    type,
-    emoji: (EMOJI.find(([re]) => re.test(lower)) || [, '🍽️'])[1],
-    serves,
-    keeps,
-    freezes,
-    tags,
-    ing,
-    source: r.url,
-    totalTime: r.totalTime,
-    nutr,
-  });
-}
-out.sort((a, b) => a.name.localeCompare(b.name, 'pl'));
+  const out = [];
+  const unknown = new Map();
+  const reasons = { type: 0, unknown: 0, empty: 0, side: 0 };
+  for (const r of Object.values(raw.recipes)) {
+    const type = S.type(r);
+    if (!type) { reasons.type++; continue; }
+    const ing = {};
+    const missing = [];
+    let pantryMass = 0, pantryKcal = 0;
+    for (const g of r.ingredients) {
+      for (const item of g.items) {
+        const c = classify(item, g.name, S.qtyFirst);
+        if (c.unknown) missing.push(c.unknown);
+        else if (c.id && c.qty > 0) ing[c.id] = (ing[c.id] || 0) + c.qty;
+        else if (c.pantry) { pantryMass += c.grams; pantryKcal += (c.grams * c.kcal100) / 100; }
+      }
+    }
+    if (missing.length) {
+      reasons.unknown++;
+      for (const m of missing) unknown.set(m, (unknown.get(m) || 0) + 1);
+      continue;
+    }
+    if (Object.keys(ing).length < 2) { reasons.empty++; continue; }
+    if (!isMeal(r.name.trim(), ing, type)) { reasons.side++; continue; }
+    for (const k of Object.keys(ing)) ing[k] = Math.round(ing[k] * 100) / 100;
 
-writeFileSync(`${ROOT}js/recipes-ania.js`,
-  `// Wygenerowane przez tools/build-ania.mjs z przepisów aniagotuje.pl. Tylko na własny użytek — nie publikuj.\n` +
-  `export const ANIA_RECIPES = ${JSON.stringify(out)};\n`);
+    // Porcje z opisu bywają zawyżone („24 placki”, „pizza 26 cm”) — trzymamy je w rozsądnym
+    // przedziale według łącznej wagi składników.
+    const mass = Object.entries(ing).reduce((a, [k, q]) => {
+      const I = INGREDIENTS[k];
+      return a + (I.unit === 'g' || I.unit === 'ml' ? q : q * (I.gPerSzt || 100));
+    }, 0);
+    const [lo, hi] = type === 'obiad' ? [250, 550] : [120, 350];
+    const serves = Math.max(type === 'obiad' ? 2 : 1, Math.min(12, Math.round(Math.min(Math.max(S.servings(r, type), mass / hi), mass / lo))));
+    const [keeps, freezes] = shelfLife(r, type);
+    const nutr = S.nutrition(r, ing, mass, pantryMass, pantryKcal, serves);
+    // Ponad 1800 kcal na porcję to prawie zawsze błąd w danych (np. litr tłuszczu do konfitowania).
+    if (nutr.kcal > 1800) { reasons.empty++; continue; }
+    const lower = r.name.toLowerCase();
+    out.push({
+      id: `${S.prefix}${r.url.split('/').pop()}`,
+      name: clean(r.name),
+      type,
+      emoji: (EMOJI.find(([re]) => re.test(lower)) || [, '🍽️'])[1],
+      serves,
+      keeps,
+      freezes,
+      tags: S.tags(r, ing),
+      ing,
+      source: r.url,
+      site: S.site,
+      totalTime: r.totalTime,
+      nutr,
+    });
+  }
+  out.sort((a, b) => a.name.localeCompare(b.name, 'pl'));
+  writeFileSync(ROOT + S.out,
+    `// Wygenerowane przez tools/build-recipes.mjs z ${S.note}: nazwa, składniki, wartości odżywcze i link.\n` +
+    `// Tylko na własny użytek — nie publikuj.\nexport const ${S.name} = ${JSON.stringify(out)};\n`);
 
-const total = Object.keys(raw.recipes).length;
-console.log(`Przepisy pobrane: ${total} · zaimportowane: ${out.length} (obiady ${out.filter((r) => r.type === 'obiad').length}, śniadania ${out.filter((r) => r.type === 'sniadanie').length})`);
-console.log(`Pominięte: nie obiad/śniadanie ${reasons.type}, nierozpoznany składnik ${reasons.unknown}, za mało danych ${reasons.empty}, dodatki ${reasons.side}`);
-if (REPORT) {
-  console.log('\nNajczęstsze nierozpoznane składniki:');
-  for (const [k, v] of [...unknown].sort((a, b) => b[1] - a[1]).slice(0, 80)) console.log(String(v).padStart(4), k);
+  const total = Object.keys(raw.recipes).length;
+  console.log(`${key}: pobrane ${total} · zaimportowane ${out.length} (obiady ${out.filter((r) => r.type === 'obiad').length}, śniadania ${out.filter((r) => r.type === 'sniadanie').length})`);
+  console.log(`  pominięte: nie obiad/śniadanie ${reasons.type}, nierozpoznany składnik ${reasons.unknown}, za mało danych ${reasons.empty}, dodatki ${reasons.side}`);
+  if (process.argv.includes('--report')) {
+    console.log('  najczęstsze nierozpoznane składniki:');
+    for (const [k, v] of [...unknown].sort((a, b) => b[1] - a[1]).slice(0, 80)) console.log(String(v).padStart(6), k);
+  }
 }

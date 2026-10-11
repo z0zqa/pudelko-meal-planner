@@ -365,29 +365,87 @@ function cookCard({ m, b, bi }) {
 
 function renderFridge() {
   const entries = Object.entries(state.fridge);
-  const options = Object.entries(INGREDIENTS)
-    .filter(([id, ing]) => !ing.pantry && !(id in state.fridge))
-    .sort((a, b) => a[1].name.localeCompare(b[1].name, 'pl'))
-    .map(([id, ing]) => `<option value="${id}">${ing.name}</option>`).join('');
   return `
     <h1>Lodówka</h1>
     <p class="muted">Wpisz, co już masz. Nowy plan wykorzysta te produkty i nie każe ich kupować drugi raz.</p>
-    ${entries.length ? `<div class="list">${entries.map(([id, q]) => `
+    <form id="fridge-form" class="card">
+      <label for="fridge-q" class="label" style="display:block;font-weight:600;margin-bottom:6px">Dodaj produkt</label>
+      <input class="input" id="fridge-q" name="q" type="text" autocomplete="off" autocapitalize="none" enterkeyhint="done"
+        placeholder="np. jajka 6, mleko 1 l, ryż 500 g" aria-describedby="fridge-hint">
+      <div id="fridge-suggest" class="suggest">${fridgeSuggestions('')}</div>
+      <p id="fridge-hint" class="muted small" style="margin:8px 0 0">Ilość możesz pominąć: dodamy jedno opakowanie i poprawisz ją na liście.</p>
+    </form>
+    ${entries.length ? `<div class="list" style="margin-top:16px">${entries.map(([id, q]) => `
       <div class="fridge-row">
         <span>${INGREDIENTS[id].name}</span>
         <span class="qty"><input type="number" inputmode="decimal" min="0" step="any" value="${round2(q)}" data-action="fridge-qty" data-id="${id}" aria-label="Ilość: ${INGREDIENTS[id].name}"><span>${INGREDIENTS[id].unit}</span></span>
         <button class="icon-btn" data-action="fridge-del" data-id="${id}" aria-label="Usuń ${INGREDIENTS[id].name}">✕</button>
-      </div>`).join('')}</div>` : '<div class="card soft muted">Lodówka jest pusta.</div>'}
-    <form id="fridge-form" class="card" style="margin-top:16px">
-      <h3>Dodaj produkt</h3>
-      <div class="row" style="flex-wrap:nowrap">
-        <select name="ing" aria-label="Produkt" style="flex:2">${options}</select>
-        <input class="input" name="qty" type="number" inputmode="decimal" min="0" step="any" placeholder="ilość" aria-label="Ilość" style="flex:1" required>
-      </div>
-      <button class="btn block" type="submit" style="margin-top:10px">Dodaj</button>
-    </form>
+      </div>`).join('')}</div>` : '<div class="card soft muted" style="margin-top:16px">Lodówka jest pusta.</div>'}
     ${state.plan ? `<p class="muted small">Gdy zaczniesz nowy plan, zapytamy, czy przenieść tutaj resztki z obecnych zakupów.</p>` : ''}
     ${entries.length ? '<button class="btn ghost" data-action="fridge-clear">Wyczyść lodówkę</button>' : ''}`;
+}
+
+// „jajka 6”, „mleko 1,5 l”, „2 kg ziemniaków” → nazwa + ilość w jednostce produktu.
+function parseFridgeText(text) {
+  const t = text.toLowerCase().replace(',', '.');
+  const m = t.match(/(\d+(?:\.\d+)?)\s*(kg|dag|g|ml|l|szt\.?|sztuk\w*|op\.?|opak\w*|paczk\w*|puszk\w*)?/);
+  const words = norm(t.replace(m ? m[0] : '', ' ')).split(/[^a-z0-9]+/).filter((w) => w.length >= 2);
+  return { words, n: m ? parseFloat(m[1]) : null, unit: m?.[2]?.replace('.', '') || '' };
+}
+
+function toProductQty(ing, n, unit) {
+  const mass = ing.unit === 'g' || ing.unit === 'ml';
+  if (n == null) return ing.pack;
+  if (unit === 'kg' || unit === 'l') return mass ? n * 1000 : n * 1000 / (ing.gPerSzt || 1000);
+  if (unit === 'dag') return mass ? n * 10 : n * 10 / (ing.gPerSzt || 100);
+  if (unit === 'g' || unit === 'ml') return mass ? n : n / (ing.gPerSzt || 100);
+  if (/^(op|opak|paczk|puszk)/.test(unit)) return n * ing.pack;
+  if (/^szt/.test(unit)) return mass ? n * (ing.gPerSzt || ing.pack) : n;
+  // Bez jednostki: sztuki dla produktów na sztuki, małe liczby to opakowania, duże to gramy.
+  if (!mass) return n;
+  return n <= 10 ? n * ing.pack : n;
+}
+
+function fridgeMatches(text) {
+  const { words, n, unit } = parseFridgeText(text);
+  if (!words.length) return [];
+  // Odmiana: „jajek” → jaj…, „ziemniaków” → ziemnia…, więc porównujemy początki słów.
+  const stems = words.map((w) => w.slice(0, Math.max(3, w.length - 2)));
+  return Object.entries(INGREDIENTS)
+    .filter(([id]) => id !== 'przyprawy' && id !== 'bulion')
+    .map(([id, ing]) => {
+      const nameWords = norm(ing.name).split(/[^a-z0-9]+/).filter(Boolean);
+      // Dokładne słowo 3 pkt, początek słowa 2 pkt, ten sam rdzeń 1 pkt; pierwsze słowo nazwy waży więcej.
+      let score = 0;
+      words.forEach((w, i) => {
+        const best = Math.max(0, ...nameWords.map((nw, j) => {
+          const pts = nw === w ? 3 : nw.startsWith(w) ? 2 : nw.startsWith(stems[i]) ? 1 : 0;
+          return pts && j === 0 ? pts + 0.5 : pts;
+        }));
+        score += best;
+      });
+      return { id, ing, score, hits: score > 0, qty: toProductQty(ing, n, unit) };
+    })
+    .filter((x) => x.hits)
+    .sort((a, b) => b.score - a.score || a.ing.name.length - b.ing.name.length)
+    .slice(0, 6);
+}
+
+function fridgeSuggestions(text) {
+  const list = fridgeMatches(text);
+  if (!text.trim()) return '';
+  if (!list.length) return '<p class="muted small" style="margin:8px 0 0">Nie znamy takiego produktu. Spróbuj innej nazwy, np. „ser”, „kurczak”, „pomidory”.</p>';
+  return list.map((x) => `<button type="button" class="suggest-item" data-action="fridge-add" data-id="${x.id}" data-q="${round2(x.qty)}">
+    <span>${x.ing.name}</span><span class="muted">+ ${fmtQty(x.qty, x.ing.unit)}</span></button>`).join('');
+}
+
+function addToFridge(id, q) {
+  state.fridge[id] = round2((state.fridge[id] || 0) + q);
+  save();
+  route();
+  toast(`Dodano: ${INGREDIENTS[id].name}, ${fmtQty(q, INGREDIENTS[id].unit)}`);
+  const input = document.getElementById('fridge-q');
+  if (input) input.focus();
 }
 
 // Przepisy
@@ -569,6 +627,7 @@ document.addEventListener('click', async (e) => {
       try { await navigator.clipboard.writeText(listAsText()); toast('Skopiowano listę'); }
       catch { toast('Nie udało się skopiować'); }
       return;
+    case 'fridge-add': return addToFridge(el.dataset.id, parseFloat(el.dataset.q));
     case 'fridge-del': delete state.fridge[el.dataset.id]; save(); break;
     case 'fridge-clear': state.fridge = {}; save(); break;
     case 'rfilter': state.recipeFilter = el.dataset.v; state.recipeLimit = 40; break;
@@ -601,15 +660,19 @@ document.addEventListener('submit', (e) => {
     makePlan();
     window.scrollTo(0, 0);
   } else if (e.target.id === 'fridge-form') {
-    const q = parseFloat(e.target.qty.value.replace(',', '.'));
-    if (q > 0) state.fridge[e.target.ing.value] = q;
-    save();
+    const first = fridgeMatches(e.target.q.value)[0];
+    if (first) return addToFridge(first.id, first.qty);
+    return;
   }
   route();
 });
 
 let searchTimer;
 document.addEventListener('input', (e) => {
+  if (e.target.id === 'fridge-q') {
+    document.getElementById('fridge-suggest').innerHTML = fridgeSuggestions(e.target.value);
+    return;
+  }
   if (e.target.id !== 'recipe-search') return;
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => {

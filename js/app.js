@@ -1,6 +1,6 @@
 import { INGREDIENTS, CATEGORIES, TAG_LABELS } from './data.js';
 import {
-  ALL_RECIPES, siteOf, SITES, EFFORT, buyId, avoidStems, containsAvoided, recipeTime, recipeById, scaled, nutrition, dayNutrition, generatePlan, MEAL_SHARE, shoppingList, swapOptions, costPerPortion, cookDays,
+  ALL_RECIPES, siteOf, SITES, EFFORT, norm, buyId, avoidStems, containsAvoided, recipeTime, recipeById, scaled, nutrition, dayNutrition, generatePlan, MEAL_SHARE, shoppingList, swapOptions, costPerPortion, cookDays,
   fmtQty, fmtZl, round2,
 } from './planner.js';
 
@@ -497,7 +497,6 @@ function renderRecipes() {
     <div id="recipe-list">${recipeList()}</div>`;
 }
 
-const norm = (t) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ł/g, 'l');
 
 function recipeList() {
   const f = state.recipeFilter;

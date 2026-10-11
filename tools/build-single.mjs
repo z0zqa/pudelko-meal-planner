@@ -13,6 +13,11 @@ const js = ['js/data.js', 'js/recipes-ania.js', 'js/recipes-lidl.js', 'js/planne
     .replace(/^export (const|function|let)/gm, '$1'))
   .join('\n');
 
+// Wszystkie moduły trafiają do jednego zakresu, więc ta sama nazwa w dwóch plikach zepsułaby stronę.
+const names = [...js.matchAll(/^(?:const|function|let) ([A-Za-z_]\w*)/gm)].map((m) => m[1]);
+const dups = names.filter((n, i) => names.indexOf(n) !== i);
+if (dups.length) throw new Error(`Ta sama nazwa w kilku modułach: ${[...new Set(dups)].join(', ')}`);
+
 const icon = `data:image/svg+xml;base64,${Buffer.from(read('icon.svg')).toString('base64')}`;
 const html = read('index.html');
 const title = '<title>Pudełko</title>';

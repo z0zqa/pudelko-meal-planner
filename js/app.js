@@ -24,6 +24,8 @@ function load() {
     done: saved.done || {},
     // Ile czego dodało do lodówki odhaczenie zakupu i ile zabrało oznaczenie dania jako ugotowane,
     // żeby odznaczenie mogło to cofnąć.
+    // Plany z poprzednich tygodni: { start, ids, names } — żeby nowy plan nie powtarzał dań.
+    history: saved.history || [],
     bought: saved.bought || {},
     consumed: saved.consumed || {},
     recipeFilter: 'obiad',
@@ -298,6 +300,7 @@ function renderForm() {
         <label class="switch"><span>Bez glutenu</span><input type="checkbox" name="glutenFree" ${s.glutenFree ? 'checked' : ''}></label>
         <p class="muted small" style="margin:4px 0 0">Plan zawsze ma śniadanie, obiad i kolację.</p>
       </div>
+      ${historyNote()}
       <button class="btn primary block" type="submit">Ułóż plan</button>
       ${state.plan ? '<button class="btn ghost block" type="button" data-action="cancel-edit" style="margin-top:8px">Anuluj</button>' : ''}
     </form>
@@ -310,6 +313,14 @@ function addAvoid(text) {
   if (!t) return;
   const list = state.settings.avoid || [];
   if (!list.includes(t)) state.settings.avoid = [...list, t];
+}
+
+function historyNote() {
+  // Plan z wcześniejszego dnia trafi do historii przy układaniu nowego, więc liczymy go już teraz.
+  const pending = state.plan && state.plan.start < todayStart() ? state.plan.meals.map((m) => m.recipeId) : [];
+  const n = new Set([...state.history.filter((h) => h.start >= todayStart() - HISTORY_DAYS * DAY).flatMap((h) => h.ids), ...pending]).size;
+  if (!n) return '<p class="muted small">Kolejne plany nie powtórzą dań z ostatnich 2 tygodni.</p>';
+  return `<p class="muted small">Pomijamy ${n} ${plural(n, 'danie', 'dania', 'dań')} z ostatnich 2 tygodni, żeby się nie powtarzały. <button type="button" class="btn small ghost" data-action="clear-history">Wyczyść historię</button></p>`;
 }
 
 function readForm() {
@@ -326,8 +337,31 @@ function readForm() {
   addAvoid(f.querySelector('#avoid-q')?.value);
 }
 
+// Ile dni wstecz pamiętamy zjedzone dania.
+const HISTORY_DAYS = 14;
+const DAY = 24 * 60 * 60 * 1000;
+const todayStart = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); };
+
+// Zapisuje obecny plan w historii (jeśli był w użyciu) i czyści stare wpisy.
+function archivePlan() {
+  const p = state.plan;
+  const ids = p ? [...new Set(p.meals.map((m) => m.recipeId))] : [];
+  if (p && !state.history.some((h) => h.start === p.start && h.ids.join() === ids.join())) {
+    state.history.push({ start: p.start, ids, names: [...new Set(p.meals.map((m) => norm(recipeById[m.recipeId]?.name || '')))] });
+  }
+  state.history = state.history.filter((h) => h.start >= todayStart() - HISTORY_DAYS * DAY);
+}
+
+function recentDishes() {
+  const fresh = state.history.filter((h) => h.start >= todayStart() - HISTORY_DAYS * DAY);
+  return [...new Set(fresh.flatMap((h) => [...h.ids, ...h.names]))];
+}
+
 function makePlan() {
-  const s = { ...state.settings };
+  // Plan z wcześniejszego dnia był już w użyciu, więc trafia do historii.
+  // „Wylosuj inne dania” tego samego dnia tylko go zastępuje.
+  if (state.plan && state.plan.start < todayStart()) archivePlan();
+  const s = { ...state.settings, excluded: recentDishes() };
   const res = generatePlan(s, state.fridge);
   if (res.error) return toast(res.error);
   const today = new Date();
@@ -697,6 +731,7 @@ function openNewPlan() {
 }
 
 function startNewPlan(consumeRest) {
+  archivePlan();
   if (consumeRest) for (const x of uncookedBatches()) consumeBatch(x.m, x.b, `${x.m.recipeId}#${x.bi}`);
   state.plan = null;
   state.checked = {};
@@ -779,6 +814,7 @@ document.addEventListener('click', async (e) => {
     case 'source': readForm(); s.source = el.dataset.v; break;
     case 'effort': readForm(); s.effort = el.dataset.v; break;
     case 'price': readForm(); s.price = el.dataset.v; break;
+    case 'clear-history': readForm(); state.history = []; toast('Historia wyczyszczona'); break;
     case 'rprice': state.recipePrice = el.dataset.v; state.recipeLimit = 40; break;
     case 'qprice': state.quickPrice = el.dataset.v; state.quickLimit = 30; break;
     case 'avoid-add': readForm(); break;

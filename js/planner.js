@@ -110,6 +110,7 @@ export function priceTier(r, s) {
 }
 
 const stemCache = new Map();
+const recentCache = new Map();
 export function fitsDiet(recipe, s) {
   if (s.price && s.price !== 'any' && priceTier(recipe, s) !== s.price) return false;
   const lim = EFFORT[s.effort || 'any'];
@@ -125,7 +126,13 @@ export function fitsDiet(recipe, s) {
   if (s.diet === 'wege' && !recipe.tags.includes('wege')) return false;
   if (s.diet === 'wegan' && !recipe.tags.includes('wegan')) return false;
   if (s.glutenFree && !recipe.tags.includes('bezgl')) return false;
-  if (s.excluded?.includes(recipe.id)) return false;
+  // Dania z poprzednich tygodni (po id i po nazwie, bo to samo danie bywa w kilku źródłach).
+  if (s.excluded?.length) {
+    const key = s.excluded.join('|');
+    if (!recentCache.has(key)) recentCache.set(key, new Set(s.excluded));
+    const set = recentCache.get(key);
+    if (set.has(recipe.id) || set.has(recipe._n ??= norm(recipe.name))) return false;
+  }
   if (s.source && s.source !== 'all' && siteOf(recipe) !== s.source) return false;
   return true;
 }
@@ -289,7 +296,7 @@ export function buildMeals(dinnerIds, breakfastIds, s, supperIds = []) {
 // Kandydaci z łagodzeniem filtrów, gdy nic nie zostaje: najpierw inne źródła, potem dłuższy czas,
 // na końcu bez „Bez glutenu”. „Czego nie jesz”, dieta i sprzęt zostają zawsze.
 export function candidatesRelaxed(type, s) {
-  const steps = [s, { ...s, source: 'all' }, { ...s, source: 'all', effort: s.effort === 'ultra' ? 'min' : 'normal' }, { ...s, source: 'all', effort: 'any' }, { ...s, source: 'all', effort: 'any', price: 'any' }, { ...s, source: 'all', effort: 'any', price: 'any', glutenFree: false }];
+  const steps = [s, { ...s, source: 'all' }, { ...s, source: 'all', effort: s.effort === 'ultra' ? 'min' : 'normal' }, { ...s, source: 'all', effort: 'any' }, { ...s, source: 'all', effort: 'any', price: 'any' }, { ...s, source: 'all', effort: 'any', price: 'any', glutenFree: false }, { ...s, source: 'all', effort: 'any', price: 'any', glutenFree: false, excluded: [] }];
   for (const x of steps) {
     const c = candidates(type, x);
     if (c.length >= (type === 'obiad' ? 1 : 2)) return c;

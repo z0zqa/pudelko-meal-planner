@@ -16,7 +16,8 @@ function load() {
   try { saved = JSON.parse(localStorage.getItem(KEY)) || {}; } catch {}
   return {
     // Ustawienia sprzed dodania kolacji: włączamy śniadania i kolacje, żeby plan dawał pełne 1500 kcal.
-    settings: { ...DEFAULT_SETTINGS, ...saved.settings, kcal: KCAL, ...(saved.settings && !('suppers' in saved.settings) ? { breakfasts: true, suppers: true } : {}) },
+    // Stałe ustawienia: 1500 kcal i zawsze trzy posiłki (śniadanie, obiad, kolacja).
+    settings: { ...DEFAULT_SETTINGS, ...saved.settings, kcal: KCAL, breakfasts: true, suppers: true },
     plan: saved.plan || null,
     fridge: saved.fridge || {},
     checked: saved.checked || {},
@@ -277,7 +278,7 @@ function renderForm() {
       </div>
       <div class="field">
         <div class="label">Kalorie: ${KCAL.toLocaleString('pl-PL')} kcal dziennie</div>
-        <p class="muted small" style="margin:6px 0 0">Porcje dobieramy tak, żeby posiłki z planu dały razem ${KCAL.toLocaleString('pl-PL')} kcal: śniadanie ok. ${Math.round(KCAL * 0.3)}, obiad ok. ${Math.round(KCAL * 0.4)}, kolacja ok. ${Math.round(KCAL * 0.3)}. Bez któregoś posiłku pozostałe przejmują jego kalorie.</p>
+        <p class="muted small" style="margin:6px 0 0">Porcje dobieramy tak, żeby posiłki z planu dały razem ${KCAL.toLocaleString('pl-PL')} kcal: śniadanie ok. ${Math.round(KCAL * 0.3)}, obiad ok. ${Math.round(KCAL * 0.4)}, kolacja ok. ${Math.round(KCAL * 0.3)}. Gdy przy Twoich filtrach brakuje śniadań lub kolacji, bierzemy je z innych źródeł.</p>
       </div>
       <div class="field">
         <div class="label">Skąd przepisy?</div>
@@ -285,8 +286,7 @@ function renderForm() {
       </div>
       <div class="field">
         <label class="switch"><span>Bez glutenu</span><input type="checkbox" name="glutenFree" ${s.glutenFree ? 'checked' : ''}></label>
-        <label class="switch"><span>Planuj też śniadania</span><input type="checkbox" name="breakfasts" ${s.breakfasts ? 'checked' : ''}></label>
-        <label class="switch"><span>Planuj też kolacje</span><input type="checkbox" name="suppers" ${s.suppers ? 'checked' : ''}></label>
+        <p class="muted small" style="margin:4px 0 0">Plan zawsze ma śniadanie, obiad i kolację.</p>
       </div>
       <button class="btn primary block" type="submit">Ułóż plan</button>
       ${state.plan ? '<button class="btn ghost block" type="button" data-action="cancel-edit" style="margin-top:8px">Anuluj</button>' : ''}
@@ -308,8 +308,8 @@ function readForm() {
   const budget = parseFloat(f.budget.value.replace(',', '.'));
   if (budget > 0) state.settings.budget = budget;
   state.settings.glutenFree = f.glutenFree.checked;
-  state.settings.breakfasts = f.breakfasts.checked;
-  state.settings.suppers = f.suppers.checked;
+  state.settings.breakfasts = true;
+  state.settings.suppers = true;
   state.settings.lactoseFree = f.lactoseFree.checked;
   state.settings.oven = f.oven.checked;
   state.settings.airfryer = f.airfryer.checked;

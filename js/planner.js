@@ -276,15 +276,26 @@ export function buildMeals(dinnerIds, breakfastIds, s, supperIds = []) {
 
 // Losuje wiele kombinacji dań i wybiera taką, która mieści się w budżecie.
 // Składniki liczone w całych opakowaniach, więc dania dzielące produkty wychodzą taniej.
+// Kandydaci z łagodzeniem filtrów, gdy nic nie zostaje: najpierw inne źródła, potem dłuższy czas,
+// na końcu bez „Bez glutenu”. „Czego nie jesz”, dieta i sprzęt zostają zawsze.
+export function candidatesRelaxed(type, s) {
+  const steps = [s, { ...s, source: 'all' }, { ...s, source: 'all', effort: s.effort === 'ultra' ? 'min' : 'normal' }, { ...s, source: 'all', effort: 'any' }, { ...s, source: 'all', effort: 'any', glutenFree: false }];
+  for (const x of steps) {
+    const c = candidates(type, x);
+    if (c.length >= (type === 'obiad' ? 1 : 2)) return c;
+  }
+  return candidates(type, steps[steps.length - 1]);
+}
+
 export function generatePlan(s, fridge = {}, rng = Math.random, tries = 2500) {
-  const dinners = candidates('obiad', s);
-  const breakfasts = s.breakfasts ? candidates('sniadanie', s) : [];
-  const suppers = s.suppers ? candidates('kolacja', s) : [];
+  const dinners = candidatesRelaxed('obiad', s);
+  const breakfasts = s.breakfasts ? candidatesRelaxed('sniadanie', s) : [];
+  const suppers = s.suppers ? candidatesRelaxed('kolacja', s) : [];
   if (!dinners.length) return { error: 'Żaden obiad nie pasuje do tych ustawień. Poluzuj filtry: czas w kuchni, źródło przepisów, dietę albo listę „Czego nie jesz”.' };
 
   const kd = Math.min(dishCount('obiad', s.days, s.effort), dinners.length);
   const kb = s.breakfasts ? Math.min(dishCount('sniadanie', s.days, s.effort), breakfasts.length) : 0;
-  const kk = s.suppers ? Math.min(dishCount('sniadanie', s.days, s.effort), Math.max(0, suppers.length - kb)) : 0;
+  const kk = s.suppers ? Math.min(dishCount('sniadanie', s.days, s.effort), suppers.length) : 0;
 
   const seen = new Set();
   const results = [];
@@ -298,7 +309,9 @@ export function generatePlan(s, fridge = {}, rng = Math.random, tries = 2500) {
     }
     const d = sample(dinners, kd, rng).map((r) => r.id).sort();
     const b = sample(breakfasts, kb, rng).map((r) => r.id).sort();
-    const k = sample(suppers.filter((r) => !b.includes(r.id)), kk, rng).map((r) => r.id).sort();
+    // Kolacje inne niż śniadania; przy bardzo małej puli mogą się powtórzyć.
+    const other = suppers.filter((r) => !b.includes(r.id));
+    const k = sample(other.length >= kk ? other : suppers, kk, rng).map((r) => r.id).sort();
     const key = d.join(',') + '|' + b.join(',') + '|' + k.join(',');
     if (seen.has(key)) continue;
     seen.add(key);
@@ -344,7 +357,7 @@ export function swapOptions(plan, index, fridge = {}) {
   const s = plan.settings;
   const current = plan.meals[index];
   const used = new Set(plan.meals.filter((m) => poolType(m.type) === poolType(current.type)).map((m) => m.recipeId));
-  return candidates(current.type, s)
+  return candidatesRelaxed(current.type, s)
     .filter((r) => !used.has(r.id))
     .map((r) => {
       const meals = replaceMeal(plan, index, r.id);

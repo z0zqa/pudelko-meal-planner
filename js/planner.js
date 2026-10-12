@@ -288,7 +288,14 @@ export function generatePlan(s, fridge = {}, rng = Math.random, tries = 2500) {
 
   const seen = new Set();
   const results = [];
-  for (let t = 0; t < tries; t++) {
+  // Druga runda bez zasady urozmaicenia, gdy przy ostrych filtrach zostało za mało różnych dań.
+  let strict = true;
+  for (let t = 0; t < tries * 2; t++) {
+    if (t === tries) {
+      if (results.length) break;
+      strict = false;
+      seen.clear();
+    }
     const d = sample(dinners, kd, rng).map((r) => r.id).sort();
     const b = sample(breakfasts, kb, rng).map((r) => r.id).sort();
     const k = sample(suppers.filter((r) => !b.includes(r.id)), kk, rng).map((r) => r.id).sort();
@@ -302,7 +309,7 @@ export function generatePlan(s, fridge = {}, rng = Math.random, tries = 2500) {
       const rs = ids.map((id) => recipeById[id]);
       return dup(rs.map((r) => r.emoji).filter((e) => e !== '🍽️')) || dup(rs.map(dishKind));
     };
-    if (same(d) || same([...b, ...k]) || dup([...d, ...b, ...k].map((id) => dishKind(recipeById[id])))) continue;
+    if (strict && (same(d) || same([...b, ...k]) || dup([...d, ...b, ...k].map((id) => dishKind(recipeById[id]))))) continue;
     const meals = buildMeals(d, b, s, k);
     const cost = planCost(meals, fridge, s);
     // Kary w rankingu: każde dodatkowe gotowanie w tygodniu i niedobór kalorii względem celu.
@@ -317,6 +324,7 @@ export function generatePlan(s, fridge = {}, rng = Math.random, tries = 2500) {
     results.push({ meals, cost, score });
   }
 
+  if (!results.length) return { error: 'Za mało przepisów przy tych ustawieniach. Poluzuj filtry: czas w kuchni, źródło przepisów, „Bez glutenu” albo listę „Czego nie jesz”.' };
   results.sort((a, b) => a.score - b.score);
   const within = results.filter((r) => r.cost <= s.budget);
   let pick;

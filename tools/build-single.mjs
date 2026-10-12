@@ -25,7 +25,8 @@ const body = html.slice(html.indexOf('<body>') + 6, html.indexOf('</body>'))
   .replace(/<script type="module" src="js\/app.js"><\/script>/, '')
   .replace(/src="icon.svg"/g, `src="${icon}"`);
 
-writeFileSync(out, `${title}
+writeFileSync(out, `<meta charset="utf-8">
+${title}
 <meta name="description" content="Plan posiłków na budżet: lista zakupów, kalorie, przepisy Ani Gotuje.">
 <link rel="icon" href="${icon}">
 <style>

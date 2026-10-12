@@ -65,6 +65,20 @@ const minTxt = (m) => (m >= 60 ? `${Math.floor(m / 60)} h ${m % 60 ? `${m % 60} 
 const view = document.getElementById('view');
 const sheet = document.getElementById('sheet');
 
+// Plan zapisany przed aktualizacją bazy może wskazywać przepisy, których już nie ma.
+function dropStalePlan() {
+  if (state.plan && state.plan.meals.some((m) => !recipeById[m.recipeId])) {
+    state.plan = null;
+    state.checked = {};
+    state.done = {};
+    state.bought = {};
+    state.consumed = {};
+    save();
+    setTimeout(() => toast('Baza przepisów się zmieniła, ułóż nowy plan.'), 300);
+  }
+}
+dropStalePlan();
+
 function route() {
   const tab = (location.hash || '#plan').slice(1);
   document.querySelectorAll('.tabs a').forEach((a) => a.classList.toggle('active', a.dataset.tab === tab));

@@ -538,7 +538,7 @@ for (const key of which.length ? which : Object.keys(SOURCES)) {
     if (nutr.kcal > 1800) { reasons.empty++; continue; }
     const lower = r.name.toLowerCase();
     out.push({
-      id: `${S.prefix}${r.url.split('/').pop()}`,
+      id: `${S.prefix}${r.url.replace(/\/+$/, '').split('/').pop()}`,
       name: clean(r.name),
       type,
       emoji: (EMOJI.find(([re]) => re.test(lower)) || [, '🍽️'])[1],
@@ -556,6 +556,12 @@ for (const key of which.length ? which : Object.keys(SOURCES)) {
     });
   }
   out.sort((a, b) => a.name.localeCompare(b.name, 'pl'));
+  // Każdy przepis musi mieć własne id, inaczej aplikacja pomyli przepisy.
+  const ids = new Set();
+  for (const r of out) {
+    if (ids.has(r.id) || r.id === S.prefix) throw new Error(`${key}: powtórzone albo puste id przepisu: ${r.id} (${r.source})`);
+    ids.add(r.id);
+  }
   writeFileSync(ROOT + S.out,
     `// Wygenerowane przez tools/build-recipes.mjs z ${S.note}: nazwa, składniki, wartości odżywcze i link.\n` +
     `// Tylko na własny użytek — nie publikuj.\nexport const ${S.name} = ${JSON.stringify(out)};\n`);

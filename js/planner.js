@@ -100,8 +100,18 @@ export const recipeTime = (r) => r.totalTime || (r.steps || []).reduce((a, x) =>
 // drożdżowe. Czas ze strony często tego nie obejmuje, więc w trybie „Minimum” je pomijamy.
 const LABOR = /plac(ek|ki|uszk)|naleśnik|nalesnik|racuch|krokiet|pierog|pierożk|kotlet|kopytk|klusk|knedl|gofr|pancake|frytk|gołąb|golab|uszk|pyz|kluch|tortellin|ravioli|pasztecik|drożdż|drozdz|proziak|podpłomyk|wieniec|bułk|chleb|ciasto|gnocchi|własnej roboty|domow\w* makaron|lazani|lasagn|roladk|rolad/;
 
+// Poziom ceny porcji: obiady tanie do 5 zł, średnie do 9 zł; śniadania i kolacje do 3 i do 6 zł.
+export const PRICE_LIMITS = { obiad: [5, 9], sniadanie: [3, 6] };
+export const PRICE_LABELS = { tanie: 'tanie', srednie: 'średnie', drogie: 'drogie' };
+export function priceTier(r, s) {
+  const [a, b] = PRICE_LIMITS[r.type];
+  const c = costPerPortion(r, s);
+  return c <= a ? 'tanie' : c <= b ? 'srednie' : 'drogie';
+}
+
 const stemCache = new Map();
 export function fitsDiet(recipe, s) {
+  if (s.price && s.price !== 'any' && priceTier(recipe, s) !== s.price) return false;
   const lim = EFFORT[s.effort || 'any'];
   if (recipeTime(recipe) > lim[recipe.type]) return false;
   if (!fitsEquipment(recipe, s)) return false;
@@ -279,7 +289,7 @@ export function buildMeals(dinnerIds, breakfastIds, s, supperIds = []) {
 // Kandydaci z łagodzeniem filtrów, gdy nic nie zostaje: najpierw inne źródła, potem dłuższy czas,
 // na końcu bez „Bez glutenu”. „Czego nie jesz”, dieta i sprzęt zostają zawsze.
 export function candidatesRelaxed(type, s) {
-  const steps = [s, { ...s, source: 'all' }, { ...s, source: 'all', effort: s.effort === 'ultra' ? 'min' : 'normal' }, { ...s, source: 'all', effort: 'any' }, { ...s, source: 'all', effort: 'any', glutenFree: false }];
+  const steps = [s, { ...s, source: 'all' }, { ...s, source: 'all', effort: s.effort === 'ultra' ? 'min' : 'normal' }, { ...s, source: 'all', effort: 'any' }, { ...s, source: 'all', effort: 'any', price: 'any' }, { ...s, source: 'all', effort: 'any', price: 'any', glutenFree: false }];
   for (const x of steps) {
     const c = candidates(type, x);
     if (c.length >= (type === 'obiad' ? 1 : 2)) return c;

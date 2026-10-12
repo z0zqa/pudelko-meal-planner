@@ -1,11 +1,12 @@
 import { INGREDIENTS, RECIPES, LACTOSE_FREE } from './data.js';
 import { ANIA_RECIPES } from './recipes-ania.js';
 import { LIDL_RECIPES } from './recipes-lidl.js';
+import { KS_RECIPES } from './recipes-ks.js';
 
-export const ALL_RECIPES = [...RECIPES, ...ANIA_RECIPES, ...LIDL_RECIPES];
-// Źródło przepisu: 'own' (wbudowane), 'ania', 'lidl'.
+export const ALL_RECIPES = [...RECIPES, ...ANIA_RECIPES, ...LIDL_RECIPES, ...KS_RECIPES];
+// Źródło przepisu: 'own' (wbudowane), 'ania', 'lidl', 'ks'.
 export const siteOf = (r) => r.site || (r.source ? 'ania' : 'own');
-export const SITES = { ania: { label: 'Ania Gotuje', link: 'Przepis u Ani' }, lidl: { label: 'Kuchnia Lidla', link: 'Przepis w Kuchni Lidla' } };
+export const SITES = { ania: { label: 'Ania Gotuje', link: 'Przepis u Ani' }, lidl: { label: 'Kuchnia Lidla', link: 'Przepis w Kuchni Lidla' }, ks: { label: 'Kwestia Smaku', link: 'Przepis w Kwestii Smaku' } };
 export const recipeById = Object.fromEntries(ALL_RECIPES.map((r) => [r.id, r]));
 
 export function round2(x) {

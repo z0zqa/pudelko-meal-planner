@@ -62,6 +62,7 @@ def flags(text, steps):
 
 def main():
     urls = []
+    # Kwestia Smaku ma znaczniki od razu w pliku z przepisami (tools/fetch_kwestiasmaku.py).
     for f in ('js/recipes-ania.js', 'js/recipes-lidl.js'):
         p = ROOT / f
         if p.exists():

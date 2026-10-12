@@ -42,7 +42,7 @@ const MAP_SRC = [
   [/kacz\w*|gęś\w*|gęsi\w*|indyczk\w*|jagnię\w*|jagnięc\w*|dziczyzn\w*|sarnin\w*|cielęc\w*|królik\w*/, 'kaczka'],
   [/skrzyd\w*|ćwiart\w*|kurczak\w*|kurczę\w*|tusz\w*|drob\w*|drób/, 'kurczakCaly'],
   [/indyk\w*|indycz\w*/, 'indyk'],
-  [/mięs\w* mielon\w*|mielon\w* mięs\w*|mielonego|mielonej/, 'mielone'],
+  [/mięs\w* mielon\w*|mielon\w* mięs\w*|mielon\w* (wołow|wieprzow|indyk|drobiow)\w*|\bmielonego\b(?!.*papryk)/, 'mielone'],
   [/wołow\w*|antrykot\w*|rostbef\w*|szponder\w*|pręg\w* wołow/, 'wolowina'],
   [/boczk\w*|boczek|bekon\w*|słonin\w*|pancett\w*/, 'boczek'],
   [/kiełbas\w*|chorizo|kabanos\w*|salami|kaszank\w*/, 'kielbasa'],
@@ -65,7 +65,6 @@ const MAP_SRC = [
   [/pietruszk\w*/, 'pietruszka'],
   [/\bpor(a|u|y|em|ów)?\b|porów/, 'por'],
   [/seler\w*|kalarep\w*|fenku\w*|koper\w* włosk\w*/, 'seler'],
-  [/szparag\w*/, 'szparagi'],
   [/chrzan\w*/, 'chrzan'],
   [/kapust\w* kiszon\w*|kiszon\w* kapust\w*/, 'kapustaKiszona'],
   [/kapust\w* pekiń\w*|pekin\w*/, 'kapustaPekin'],
@@ -83,9 +82,10 @@ const MAP_SRC = [
   [/brokuł\w*/, 'brokul'],
   [/kalafior\w*|kalfior\w*|brukselk\w*|romanesco/, 'kalafior'],
   [/szpinak\w*|jarmuż\w*|rukol\w*|roszpon\w*/, 'szpinak'],
-  [/pieczar\w*|grzyb\w* (świeże|leśn)\w*|boczniak\w*|kurk\w*|podgrzyb\w*|borowik\w*|shiitake/, 'pieczarki'],
+  [/pieczar\w*|grzyb\w* (świeże|leśn)\w*|boczniak\w*|kurk\w*|kurek|podgrzyb\w*|borowik\w*|shiitake/, 'pieczarki'],
   [/grzyb\w* suszon\w*|suszon\w* grzyb\w*/, 'grzybySuszone'],
   [/fasol\w* szparag\w*|fasolk\w*/, 'fasolkaSzparag'],
+  [/szparag\w*/, 'szparagi'],
   [/fasol\w* biał\w*|biał\w* fasol\w*|fasol\w* jaś|cannellini/, 'fasolaBiala'],
   [/fasol\w*/, 'fasola'],
   [/ciecierzyc\w*|hummus/, 'ciecierzyca'],
@@ -107,12 +107,12 @@ const MAP_SRC = [
   [/banan\w*/, 'banany'],
   [/truskaw\w*|malin\w*|borów\w*|jagód\w*|jagod\w*|wiśni\w*|czereśn\w*|śliw\w*|gruszk\w*|brzoskw\w*|morel\w*|owoc\w*|ananas\w*|mango|kiwi|winogron\w*|żurawin\w*|porzecz\w*|rabarbar\w*|figi|fig\b|nektaryn\w*|konfitur\w*|dżem\w*|powidł\w*|grejpfrut\w*|arbuz\w*|melon\w*|granat\w*|mandaryn\w*|klementyn\w*|papaj\w*|marakuj\w*/, 'owoce'],
   [/rodzyn\w*|orzech\w*|migdał\w*|daktyl\w*|bakali\w*|suszon\w* (morel|śliw|żurawin)\w*|nerkowc\w*|pistacj\w*|orzesz\w*|piniow\w*|wiórk\w*/, 'rodzynki'],
-  [/słonecznik\w*|pestk\w*|sezam\w*|siemi\w*|chia|nasion\w*|\bmak\w*|gorczyc\w*/, 'pestki'],
+  [/słonecznik\w*|pestk\w*|sezam\w*|siemi\w*|chia|nasion\w*|\bmak(u|iem)?\b|gorczyc\w*|tahin\w*/, 'pestki'],
   [/oliwk\w*|oliwek|kapar\w*/, 'oliwki'],
 
   [/ryż\w*|ryżu/, 'ryz'],
   [/spaghetti/, 'spaghetti'],
-  [/makaron\w*|lasagn\w*|tagliatell\w*|penne|świderk\w*|kokard\w*|nitk\w*|łazank\w*|fusill\w*|farfall\w*|rurk\w*|muszl\w*|kluse\w* ryżow|noodle|gnocchi/, 'makaron'],
+  [/makaron\w*|lasagn\w*|tagliatell\w*|penne|świderk\w*|kokard\w*|nitk\w*|łazank\w*|fusill\w*|farfall\w*|rurk\w*|muszl\w*|kluse\w* ryżow|noodle|gnocchi|orzo|kritharak\w*/, 'makaron'],
   [/kasz\w* gryczan\w*|gryczan\w*/, 'kasza'],
   [/kasz\w* jaglan\w*|jagl\w*/, 'kaszaJaglana'],
   [/pęczak\w*|kasz\w* jęczmien\w*|kasz\w* pęczak|kasz\w* perłow|kasz\w* mazursk|orkisz\w*/, 'peczak'],
@@ -142,7 +142,7 @@ const MEASURES_SRC = [
   [/\bcm\b/, 5], [/\bliś\w*|\blist\w*/, 10],
   [/łyżecz\w*/, 5], [/łyż\w*/, 15], [/szklan\w*/, 'cup'], [/garś\w*|garst\w*/, 30], [/ząb\w*/, 5],
   [/słoi\w*|słoicz\w*/, 300], [/puszk\w*|puszek|opak\w*|opakowa\w*|paczk\w*|kostk\w*|pudełk\w*|kubecz\w*|kubek|kubk\w*/, 'pack'],
-  [/łodyg\w*/, 40], [/pęcz\w*/, 'szt'], [/plaster\w*|plastr\w*|plaster/, 20], [/torebk\w*|torebek/, 100], [/kromk\w*/, 35],
+  [/łodyg\w*/, 40], [/pęcz\w*/, 'pack'], [/plaster\w*|plastr\w*|plaster/, 20], [/torebk\w*|torebek/, 100], [/kromk\w*/, 35],
   [/szczypt\w*|odrobin\w*|trochę|kilka kropli/, 0], [/(główk|główek)\w*/, 'szt'], [/kawał\w*/, 'half'],
   [/gałąz\w*|gałązk\w*|łodyżk\w*/, 5], [/\bszt\b|sztuk\w*/, 'szt'],
 ];
@@ -417,6 +417,16 @@ const SOURCES = {
       return t;
     },
   },
+  ks: {
+    raw: 'data/kwestiasmaku-raw.json', out: 'js/recipes-ks.js', name: 'KS_RECIPES', prefix: 'ks-', site: 'ks',
+    note: 'kwestiasmaku.com', qtyFirst: false,
+    // Rodzaj posiłku wynika z kategorii, z której pochodzi przepis.
+    type: (r) => r.tags[0],
+    servings,
+    // Strona nie podaje wartości odżywczych, więc liczymy je ze składników.
+    nutrition: (r, ing, mass, pm, pk, serves) => { const c = calcNutrition(ing, pk, serves); return { kcal: Math.round(c.kcal), protein: Math.round(c.protein) }; },
+    tags: (r, ing) => dietFromIngredients(ing, r.ingredients.flatMap((g) => g.items.map((i) => i.name.toLowerCase())).join(' | ')),
+  },
   lidl: {
     raw: 'data/kuchnialidla-raw.json', out: 'js/recipes-lidl.js', name: 'LIDL_RECIPES', prefix: 'kl-', site: 'lidl',
     note: 'kuchnialidla.pl', qtyFirst: true,
@@ -443,7 +453,7 @@ const FLAGS = existsSync(`${ROOT}data/flags.json`) ? JSON.parse(readFileSync(`${
 // Z piekarnika do air fryera przenoszą się dania pieczone w kawałkach; zapiekanki, tarty i ciasta nie.
 const NOT_AF = /zapiekank|zapiekan|tart(a|y|ę)\b|quiche|lasagn|lazani|cannelloni|musak|gratin|ciast|keks|babk|sernik|chleb|bułk|pizz|strudel|clafoutis|suflet|pasztet|rolad|wieniec|calzone|kulebiak|pieróg|pierog|biszkopt|placek|frittat|moussaka|pieczeń|indyk w całości|kaczka w całości|gęś|kurczak w całości|cały kurczak/;
 function methodFlags(r) {
-  const f = FLAGS[r.url];
+  const f = FLAGS[r.url] || r.flags;
   if (!f) return {};
   const out = {};
   if (f.oven) out.oven = 1;

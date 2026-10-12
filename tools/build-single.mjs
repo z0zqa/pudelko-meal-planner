@@ -7,7 +7,7 @@ const read = (f) => readFileSync(ROOT + f, 'utf8');
 const out = process.argv[2] || `${ROOT}pudelko.html`;
 
 // Moduły w kolejności zależności; importy i eksporty znikają, bo wszystko trafia do jednego skryptu.
-const js = ['js/data.js', 'js/recipes-ania.js', 'js/recipes-lidl.js', 'js/planner.js', 'js/app.js']
+const js = ['js/data.js', 'js/recipes-ania.js', 'js/recipes-lidl.js', 'js/recipes-ks.js', 'js/planner.js', 'js/app.js']
   .map((f) => `// ── ${f} ──\n` + read(f)
     .replace(/^import[\s\S]*?from\s+'[^']+';\n/gm, '')
     .replace(/^export (const|function|let)/gm, '$1'))

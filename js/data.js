@@ -133,7 +133,7 @@ export const INGREDIENTS = {
   drozdze: { name: 'Drożdże świeże', unit: 'g', pack: 100, price: 1.49, cat: 'nabial', kcal: 100, protein: 12 },
   grzybySuszone: { name: 'Grzyby suszone', unit: 'g', pack: 20, price: 9.99, cat: 'inne', gPerSzt: 3, kcal: 300, protein: 20 },
   miod: { name: 'Miód', unit: 'g', pack: 400, price: 14.99, cat: 'inne', kcal: 320, protein: 0.3 },
-  oliwki: { name: 'Oliwki', unit: 'g', pack: 300, price: 5.99, cat: 'puszki', kcal: 140, protein: 1 },
+  oliwki: { name: 'Oliwki', unit: 'g', pack: 300, price: 5.99, cat: 'puszki', gPerSzt: 8, kcal: 140, protein: 1 },
   kakao: { name: 'Kakao', unit: 'g', pack: 150, price: 6.99, cat: 'inne', kcal: 380, protein: 20 },
   pestki: { name: 'Pestki / nasiona (słonecznik, sezam)', unit: 'g', pack: 200, price: 4.99, cat: 'inne', kcal: 580, protein: 22 },
   wino: { name: 'Wino do gotowania', unit: 'ml', pack: 750, price: 19.99, cat: 'inne', kcal: 80, protein: 0 },

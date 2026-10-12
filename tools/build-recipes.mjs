@@ -14,7 +14,7 @@ const pl = (re) => new RegExp(re.source
   .replaceAll('\\b', '(?:(?<=\\p{L}|\\d)(?![\\p{L}\\d])|(?<![\\p{L}\\d])(?=\\p{L}|\\d))'), 'u');
 
 // ── Słownik: wzorzec (na nazwie składnika, małe litery) → id produktu. Kolejność ma znaczenie. ──
-const PANTRY = pl(/\b(sól|soli|solą|pieprz\w*|przypraw\w*|majeran\w*|oregano|tymian\w*|bazyli\w* suszon\w*|suszon\w* bazyli\w*|kmin\w*|kumin\w*|curry|kurkum\w*|cynamon\w*|gałk\w* muszkat\w*|liś\w* laurow\w*|liści\w* laurow\w*|ziel\w* angielsk\w*|ziół|zioła prowansalsk\w*|chili|płatki chili|papryk\w* (słodk|wędzon|ostr|mielon|chili)\w*|(słodk|wędzon|ostr|mielon)\w* papryk\w*|czosn\w* (granulowan|suszon)\w*|imbir\w* mielon\w*|kolendr\w* mielon\w*|lubczyk\w*|rozmaryn\w*|estragon\w*|cząber\w*|jałow\w*|goździk\w*|kardamon\w*|wanili\w*|woda|wody|wodą|wrzątk\w*|lód|kostk\w* lodu|ocet\w*|octu|olej\w*|oliw(a|y|ą|ę)\b|oliwy z oliwek|bulion\w*|wywar\w*|rosoł\w*|kostk\w* rosoł\w*|mąk\w* ziemniaczan\w*|skrobi\w*|proszk\w* do pieczenia|sod\w* oczyszczon\w*|cukr\w* (puder|wanili|trzcin)\w*|cukier|cukru|ksylitol\w*|erytrytol\w*|sos\w* worcester\w*|tabasco|sriracha|natka? ?do dekoracji|żelatyn\w*|sezam\w* do posypania|maggi|vegeta|sos\w* rybn\w*|pasta curry|harissa|erytr\w*|zioł\w*|ziół|anyż\w*|papryczk\w*|chill?i\w*|listk\w* laurow\w*|liste\w* laurow\w*|prosz[e]?k\w* do pieczenia|sod\w*|aromat\w*|smalc\w* do smażenia|łoj\w*|łój|tłuszcz\w*|szałwi\w*|tymiank\w*|estragon\w*|lubczyk\w*)\b/);
+const PANTRY = pl(/\b(sól|soli|solą|pieprz\w*|przypraw\w*|majeran\w*|oregano|tymian\w*|bazyli\w* suszon\w*|suszon\w* bazyli\w*|kmin\w*|kumin\w*|curry|kurkum\w*|cynamon\w*|gałk\w* muszkat\w*|liś\w* laurow\w*|liści\w* laurow\w*|ziel\w* angielsk\w*|ziół|zioła prowansalsk\w*|chili|płatki chili|papryk\w* (słodk|wędzon|ostr|mielon|chili)\w*|(słodk|wędzon|ostr|mielon)\w* papryk\w*|czosn\w* (granulowan|suszon)\w*|imbir\w* mielon\w*|kolendr\w* mielon\w*|lubczyk\w*|rozmaryn\w*|estragon\w*|cząber\w*|jałow\w*|goździk\w*|kardamon\w*|wanili\w*|woda|wody|wodą|wrzątk\w*|lód|kostk\w* lodu|ocet\w*|octu|olej\w*|oliw(a|y|ą|ę)\b|oliwy z oliwek|bulion\w*|wywar\w*|rosoł\w*|kostk\w* rosoł\w*|mąk\w* ziemniaczan\w*|skrobi\w*|proszk\w* do pieczenia|sod\w* oczyszczon\w*|cukr\w* (puder|wanili|trzcin)\w*|cukier|cukru|ksylitol\w*|erytrytol\w*|sos\w* worcester\w*|tabasco|sriracha|natka? ?do dekoracji|żelatyn\w*|sezam\w* do posypania|maggi|vegeta|sos\w* rybn\w*|pasta curry|harissa|erytr\w*|eryt\w*|odżywk\w*|odzywk\w*|zioł\w*|ziół|anyż\w*|papryczk\w*|chill?i\w*|listk\w* laurow\w*|liste\w* laurow\w*|prosz[e]?k\w* do pieczenia|sod\w*|aromat\w*|smalc\w* do smażenia|łoj\w*|łój|tłuszcz\w*|szałwi\w*|tymiank\w*|estragon\w*|lubczyk\w*)\b/);
 
 const MAP_SRC = [
   [/mleczk\w* kokos|mleka kokos|mleko kokos/, 'mleczko'],
@@ -33,8 +33,8 @@ const MAP_SRC = [
   [/twaróg\w*|twarog\w*|twarożk\w*|twarożek/, 'twarog'],
   [/pleśniow\w*|camembert|brie|gorgonzol\w*|lazur/, 'serPlesniowy'],
   [/\bser(?!c)\w*\b|gouda|edam\w*|cheddar\w*|ementaler\w*|gouda/, 'ser'],
-  [/jaj(ko|ka|ek|kiem|kami|ka)?\b|jajecz\w*|żółt\w*|białk\w* jaj|białka\b/, 'jajka'],
-  [/tofu|tufu|kotlet\w* sojow\w*|granulat\w* sojow\w*|tempeh/, 'tofu'],
+  [/jaj(ko|ka|ek|kiem|kami|a)?\b|jajecz\w*|żółt\w*|białk\w* jaj|białka\b/, 'jajka'],
+  [/tofu|tufu|\w* roślinn\w* (klops|filet|kotlet|burger|nugget)\w*|klopsik\w* roślinn\w*|filecik\w* roślinn\w*|kotlet\w* sojow\w*|granulat\w* sojow\w*|tempeh/, 'tofu'],
 
   [/piersi?\w* z kurczak\w*|filet\w* z kurczak\w*|filet\w* z piersi|pierś\w*|piersi\b|polędwiczk\w* z kurczak/, 'piers'],
   [/udk\w*|udek|udziec\w* z kurczak|uda\b|ud z kurczak|podudzi\w*/, 'udka'],
@@ -46,7 +46,7 @@ const MAP_SRC = [
   [/wołow\w*|antrykot\w*|rostbef\w*|szponder\w*|pręg\w* wołow/, 'wolowina'],
   [/boczk\w*|boczek|bekon\w*|słonin\w*|pancett\w*/, 'boczek'],
   [/kiełbas\w*|chorizo|kabanos\w*|salami|kaszank\w*/, 'kielbasa'],
-  [/parów\w*/, 'parowki'],
+  [/parów\w*|frankfurter\w*/, 'parowki'],
   [/szynk\w*|polędwic\w* sopock|prosciutto/, 'szynka'],
   [/wieprz\w*|karków\w*|schab\w*|łopatk\w*|żeberk\w*|golonk\w*|polędwiczk\w*|kark\w*|mięs\w*/, 'wieprzowina'],
   [/łoso\w*/, 'losos'],
@@ -55,7 +55,8 @@ const MAP_SRC = [
   [/krewet\w*|owoc\w* morza|kalmar\w*|małż\w*/, 'krewetki'],
   [/dorsz\w*|mintaj\w*|mirun\w*|pstrąg\w*|karp\w*|halibut\w*|morszczuk\w*|tilapi\w*|ryb\w*|makrel\w*|sandacz\w*|dorad\w*|okoń|okoni\w*|filet\w* rybn\w*|paluszk\w* krab\w*|surimi|tasz\w*|pali\w*|ośmiornic\w*|kalmar\w*|mątw\w*/, 'rybaBiala'],
 
-  [/ziemniak\w*|kartofl\w*/, 'ziemniaki'],
+  [/kopyt\w*|klus\w* (lenin|leniw|śląsk|gotow)\w*|klusek|gnocch\w*|gnochi|pierożk\w*|pierog\w* gotow\w*|tortellin\w*|uszek|uszka/, 'kluskiGotowe'],
+  [/ziemniak\w*|ziemniacz\w*|kartofl\w*/, 'ziemniaki'],
   [/batat\w*/, 'batat'],
   [/dymk\w*|szczypior\w*/, 'szczypiorek'],
   [/cebul\w*|szalotk\w*/, 'cebula'],
@@ -92,7 +93,7 @@ const MAP_SRC = [
   [/soczewic\w*/, 'soczewica'],
   [/groszek|groszku|groch\w*|edamame|bób\w*|bobu/, 'groszek'],
   [/kukurydz\w*/, 'kukurydza'],
-  [/\bwarzyw(a|ami|om)?\b|mieszank\w* warzyw|włoszczyzn\w*/, 'warzywaMroz'],
+  [/\bwarzyw(a|ami|om)?\b|mieszank\w* warzyw|włoszczyzn\w*|bukiet\w* jarzyn|jarzyn\w*|mieszank\w* meksyk\w*|mieszank\w* chińsk\w*/, 'warzywaMroz'],
   [/burak\w*|buracz\w*|botwin\w*/, 'buraki'],
   [/sałat\w*|salat\w*|lodow\w*|rzymsk\w*|cykori\w*|kiełk\w*|mix sałat/, 'salata'],
   [/rzodkiew\w*/, 'rzodkiewka'],
@@ -120,18 +121,18 @@ const MAP_SRC = [
   [/bulgur\w*|quinoa|komos\w*/, 'bulgur'],
   [/płatk\w* (owsian|jaglan|gryczan|orkisz|żytn)\w*|owsian\w*|musli|granol\w*/, 'platki'],
   [/bułk\w* tart\w*|panko|otręb\w*/, 'bulkaTarta'],
-  [/tortill\w*|wrap\w*|plack\w* pit|pit(a|y)\b/, 'tortilla'],
+  [/tortill\w*|wrap\w*|plack\w* pit|pit(a|y)\b|pins\w*|piadin\w*|spod\w* do pi\w*|nachos\w*|naan/, 'tortilla'],
   [/ciast\w* francusk\w*|ciast\w* filo/, 'ciastoFrancuskie'],
   [/drożdż\w*/, 'drozdze'],
   [/bułk\w*|bagietk\w*|kajzer\w*|ciabatt\w*|grzank\w*|bułecz\w*|rogal\w*/, 'bulki'],
   [/chleb\w*|kromk\w*|pieczyw\w*|tost\w*/, 'chleb'],
-  [/mąk\w*/, 'maka'],
+  [/mąk\w*|\bmak[ai] pszenn\w*/, 'maka'],
   [/sos\w* sojow\w*|tamari/, 'sojowy'],
   [/majonez\w*/, 'majonez'],
   [/musztard\w*/, 'musztarda'],
   [/ketchup\w*/, 'ketchup'],
   [/miód|miodu|miodem|syrop\w* (klonow|z agawy|daktylow)/, 'miod'],
-  [/kakao/, 'kakao'],
+  [/kakao|czekolad\w*/, 'kakao'],
   [/win(o|a)\b|wina\b|piw\w*|rum\b|brandy|sherry|whisk\w*|wódk\w*|tequil\w*|koniak\w*|likier\w*|porto|vermouth|martini/, 'wino'],
   [/sos\w* (słodko|peri|piri|teriyaki|barbecue|bbq|chili|tzatziki|czosnkow|curry|hoisin|ostrygow)\w*|pesto|ajwar\w*|ajvar|salsa|sos\w* do\b/, 'sosGotowy'],
 ];
@@ -247,6 +248,8 @@ function classify(item, groupName, qtyFirst = false) {
   // Lidl podaje „ząbek czosnku - 9 szt.”: liczba musi stać przed miarą, więc ilość idzie na początek.
   const line = qtyFirst ? `${item.qty.toLowerCase()} ${name}` : `${name} ${item.qty.toLowerCase()}`;
   if (OPTIONAL.test(line) || /dekorac|do podania|opcjonal/i.test(groupName)) return { optional: true };
+  // Nagłówki sekcji wpisane jako składnik („0 g dressing:”, „sos:”).
+  if (/:\s*$/.test(name)) return { optional: true };
   const full = name.replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ');
   // Najpierw pierwszy wariant („cebula lub szalotka” → cebula), a jeśli nic nie pasuje — cała nazwa.
   const main = full.split(/ - | lub | albo |, np\.| np\./)[0];
@@ -427,6 +430,21 @@ const SOURCES = {
     nutrition: (r, ing, mass, pm, pk, serves) => { const c = calcNutrition(ing, pk, serves); return { kcal: Math.round(c.kcal), protein: Math.round(c.protein) }; },
     tags: (r, ing) => dietFromIngredients(ing, r.ingredients.flatMap((g) => g.items.map((i) => i.name.toLowerCase())).join(' | ')),
   },
+  respo: {
+    raw: 'data/respo-raw.json', out: 'js/recipes-respo.js', name: 'RESPO_RECIPES', prefix: 'rs-', site: 'respo',
+    note: 'centrumrespo.pl', qtyFirst: false,
+    type: (r) => r.tags[0],
+    // Respo podaje dokładną liczbę porcji i wartości na porcję, więc porcji nie przeliczamy.
+    exactServes: true,
+    servings: (r) => Math.max(1, Math.min(12, parseInt(r.yield) || 1)),
+    nutrition: (r, ing, mass, pm, pk, serves) => lidlNutrition(r, calcNutrition(ing, pk, serves)),
+    tags: (r, ing) => {
+      const kw = `${r.keywords} ${r.diets.join(' ')}`.toLowerCase();
+      const t = dietFromIngredients(ing, r.ingredients.flatMap((g) => g.items.map((i) => i.name.toLowerCase())).join(' | '));
+      if (/bez glutenu|glutenfree/.test(kw) && !t.includes('bezgl')) t.push('bezgl');
+      return t;
+    },
+  },
   lidl: {
     raw: 'data/kuchnialidla-raw.json', out: 'js/recipes-lidl.js', name: 'LIDL_RECIPES', prefix: 'kl-', site: 'lidl',
     note: 'kuchnialidla.pl', qtyFirst: true,
@@ -513,7 +531,7 @@ for (const key of which.length ? which : Object.keys(SOURCES)) {
       return a + (I.unit === 'g' || I.unit === 'ml' ? q : q * (I.gPerSzt || 100));
     }, 0);
     const [lo, hi] = type === 'obiad' ? [250, 550] : [120, 350];
-    const serves = Math.max(type === 'obiad' ? 2 : 1, Math.min(12, Math.round(Math.min(Math.max(S.servings(r, type), mass / hi), mass / lo))));
+    const serves = S.exactServes ? S.servings(r) : Math.max(type === 'obiad' ? 2 : 1, Math.min(12, Math.round(Math.min(Math.max(S.servings(r, type), mass / hi), mass / lo))));
     const [keeps, freezes] = shelfLife(r, type);
     const nutr = S.nutrition(r, ing, mass, pantryMass, pantryKcal, serves);
     // Ponad 1800 kcal na porcję to prawie zawsze błąd w danych (np. litr tłuszczu do konfitowania).

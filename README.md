@@ -47,3 +47,9 @@ Ok. 2500 dań z [kuchnialidla.pl](https://kuchnialidla.pl), na tych samych zasad
 - `node tools/build-single.mjs plik.html`: składa całą aplikację w jeden plik do otwarcia na telefonie.
 
 Lidl nie oznacza diet, więc „wege” i „wegańskie” wyliczamy ze składników, a „bez glutenu” nie oznaczamy wcale.
+
+## Kwestia Smaku i Centrum Respo (prywatnie)
+
+- `tools/fetch_kwestiasmaku.py`: wybrane kategorie (szybki obiad, lunche, śniadania bez chleba…), z 10 s przerwy między zapytaniami zgodnie z robots.txt. Kalorie liczone ze składników, czas szacowany z kroków.
+- `tools/fetch_respo.py`: dania główne z centrumrespo.pl, z kaloriami i białkiem na porcję ze strony.
+- Oba zapisują tylko nazwę, składniki, porcje, wartości odżywcze, znaczniki sposobu przygotowania i link. `node tools/build-recipes.mjs ks respo` buduje `js/recipes-ks.js` i `js/recipes-respo.js`.

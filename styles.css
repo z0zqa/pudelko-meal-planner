@@ -1,62 +1,63 @@
-/* Paleta marki: Cool Ivory + Charcoal + Black, akcent Deep Sage, detal Dusty Rose. */
+/* Paleta marki, wersja niebieska (jak w „Audycie LinkedIn”): chłodne szarości i granat,
+   szałwia dla postępu, przygaszony róż dla ostrzeżeń. */
 :root {
-  --bg: #f2ece6;
-  --surface: #faf7f3;
-  --surface-2: #e7ddd2;
-  --text: #111315;
-  --muted: #4a4c4e;
-  --line: #d9d0c6;
-  --accent: #53685f;
-  --accent-ink: #faf7f3;
-  --accent-soft: #dde4e0;
-  --ok: #53685f;
-  --ok-soft: #dde4e0;
-  --warn: #8e5356;
-  --warn-soft: #f0e0e0;
-  --rose: #c98f91;
+  --bg: #f7f9fa;
+  --surface: #ffffff;
+  --surface-2: #eef1f3;
+  --text: #252a31;
+  --muted: #56657a;
+  --line: #d5dbe1;
+  --accent: #1c2840;
+  --accent-ink: #ffffff;
+  --accent-soft: #e3e8ef;
+  --ok: #52736d;
+  --ok-soft: #e4ecea;
+  --warn: #8a4f5c;
+  --warn-soft: #f3e6e9;
+  --rose: #8a4f5c;
   --radius: 14px;
-  --shadow: 0 1px 2px rgba(17, 19, 21, .04), 0 6px 20px rgba(17, 19, 21, .05);
+  --shadow: 0 1px 2px rgba(15, 23, 38, .04), 0 6px 20px rgba(15, 23, 38, .06);
   --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #111315;
-    --surface: #1a1d1f;
-    --surface-2: #24282a;
-    --text: #e7ddd2;
-    --muted: #a9aaab;
-    --line: #33373a;
-    --accent: #8fa699;
-    --accent-ink: #111315;
-    --accent-soft: #243029;
-    --ok: #8fa699;
-    --ok-soft: #243029;
-    --warn: #d9a5a7;
-    --warn-soft: #362829;
-    --rose: #c98f91;
+    --bg: #0f1726;
+    --surface: #172236;
+    --surface-2: #1c2840;
+    --text: #eef1f3;
+    --muted: #b7bec7;
+    --line: #2a3750;
+    --accent: #9aaabb;
+    --accent-ink: #0f1726;
+    --accent-soft: #24324d;
+    --ok: #7fa29b;
+    --ok-soft: #1f3330;
+    --warn: #c9939d;
+    --warn-soft: #3a2a33;
+    --rose: #c9939d;
     --shadow: none;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-    --bg: #111315;
-    --surface: #1a1d1f;
-    --surface-2: #24282a;
-    --text: #e7ddd2;
-    --muted: #a9aaab;
-    --line: #33373a;
-    --accent: #8fa699;
-    --accent-ink: #111315;
-    --accent-soft: #243029;
-    --ok: #8fa699;
-    --ok-soft: #243029;
-    --warn: #d9a5a7;
-    --warn-soft: #362829;
-    --rose: #c98f91;
+    --bg: #0f1726;
+    --surface: #172236;
+    --surface-2: #1c2840;
+    --text: #eef1f3;
+    --muted: #b7bec7;
+    --line: #2a3750;
+    --accent: #9aaabb;
+    --accent-ink: #0f1726;
+    --accent-soft: #24324d;
+    --ok: #7fa29b;
+    --ok-soft: #1f3330;
+    --warn: #c9939d;
+    --warn-soft: #3a2a33;
+    --rose: #c9939d;
     --shadow: none;
     color-scheme: dark;
-  }
+}
 
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }

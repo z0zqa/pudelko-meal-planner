@@ -263,7 +263,7 @@ function renderForm() {
       </div>
       <div class="field">
         <div class="label">Skąd przepisy?</div>
-        <div class="chips">${srcChip('all', 'Wszystkie')}${srcChip('ania', 'Ania Gotuje')}${srcChip('lidl', 'Kuchnia Lidla')}${srcChip('ks', 'Kwestia Smaku')}${srcChip('own', 'Wbudowane')}</div>
+        <div class="chips">${srcChip('all', 'Wszystkie')}${srcChip('ania', 'Ania Gotuje')}${srcChip('lidl', 'Kuchnia Lidla')}${srcChip('ks', 'Kwestia Smaku')}${srcChip('respo', 'Respo')}${srcChip('own', 'Wbudowane')}</div>
       </div>
       <div class="field">
         <label class="switch"><span>Bez glutenu</span><input type="checkbox" name="glutenFree" ${s.glutenFree ? 'checked' : ''}></label>
@@ -516,7 +516,7 @@ function renderRecipes() {
   return `
     <h1>Przepisy</h1>
     <input class="input" type="search" id="recipe-search" placeholder="Szukaj: gulasz, kurczak, naleśniki…" value="${state.recipeQuery.replace(/"/g, '&quot;')}" aria-label="Szukaj przepisu" style="margin-bottom:10px">
-    <div class="chips" style="margin-bottom:8px">${chip('rsource', src, 'all', 'Wszystkie')}${chip('rsource', src, 'ania', 'Ania Gotuje')}${chip('rsource', src, 'lidl', 'Kuchnia Lidla')}${chip('rsource', src, 'ks', 'Kwestia Smaku')}${chip('rsource', src, 'own', 'Wbudowane')}</div>
+    <div class="chips" style="margin-bottom:8px">${chip('rsource', src, 'all', 'Wszystkie')}${chip('rsource', src, 'ania', 'Ania Gotuje')}${chip('rsource', src, 'lidl', 'Kuchnia Lidla')}${chip('rsource', src, 'ks', 'Kwestia Smaku')}${chip('rsource', src, 'respo', 'Respo')}${chip('rsource', src, 'own', 'Wbudowane')}</div>
     <div class="chips" style="margin-bottom:14px">${chip('rfilter', f, 'obiad', 'Obiady')}${chip('rfilter', f, 'sniadanie', 'Śniadania')}${chip('rfilter', f, 'wege', 'Wege')}${chip('rfilter', f, 'wegan', 'Wegańskie')}${chip('rfilter', f, 'bezgl', 'Bez glutenu')}</div>
     <div id="recipe-list">${recipeList()}</div>`;
 }

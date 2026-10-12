@@ -1,6 +1,6 @@
 // Prosty cache offline: najpierw sieć, a gdy jej brak, wersja z pamięci.
-const CACHE = 'pudelko-v13';
-const FILES = ['./', 'index.html', 'styles.css', 'js/app.js', 'js/planner.js', 'js/data.js', 'js/recipes-ania.js', 'js/recipes-lidl.js', 'js/recipes-ks.js', 'manifest.webmanifest', 'icon.svg'];
+const CACHE = 'pudelko-v14';
+const FILES = ['./', 'index.html', 'styles.css', 'js/app.js', 'js/planner.js', 'js/data.js', 'js/recipes-ania.js', 'js/recipes-lidl.js', 'js/recipes-ks.js', 'js/recipes-respo.js', 'manifest.webmanifest', 'icon.svg'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)));

@@ -128,6 +128,7 @@ export const INGREDIENTS = {
   peczak: { name: 'Kasza pęczak / jęczmienna', unit: 'g', pack: 400, price: 3.99, cat: 'suche', gPerCup: 200, kcal: 340, protein: 10 },
   kuskus: { name: 'Kuskus', unit: 'g', pack: 400, price: 5.49, cat: 'suche', gPerCup: 180, kcal: 360, protein: 12 },
   fasolaBiala: { name: 'Biała fasola (puszka)', unit: 'g', pack: 400, price: 3.29, cat: 'puszki', kcal: 100, protein: 7 },
+  kluskiGotowe: { name: 'Kopytka / kluski / gnocchi (gotowe)', unit: 'g', pack: 500, price: 6.99, cat: 'nabial', kcal: 150, protein: 4 },
   bulkaTarta: { name: 'Bułka tarta', unit: 'g', pack: 450, price: 3.49, cat: 'suche', gPerCup: 120, kcal: 380, protein: 12 },
   bulki: { name: 'Bułki / bagietka', unit: 'szt', pack: 1, price: 0.69, cat: 'suche', gPerSzt: 60, kcal: 270, protein: 9 },
   ciastoFrancuskie: { name: 'Ciasto francuskie', unit: 'g', pack: 275, price: 5.99, cat: 'nabial', kcal: 400, protein: 6 },

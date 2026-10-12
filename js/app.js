@@ -1,6 +1,6 @@
 import { INGREDIENTS, CATEGORIES, TAG_LABELS } from './data.js';
 import {
-  ALL_RECIPES, siteOf, SITES, EFFORT, norm, buyId, isQuickHealthy, healthInfo, ingCount, fitsEquipment, avoidStems, containsAvoided, recipeTime, recipeById, scaled, nutrition, dayNutrition, generatePlan, MEAL_SHARE, shoppingList, swapOptions, costPerPortion, cookDays,
+  ALL_RECIPES, siteOf, SITES, EFFORT, norm, buyId, isQuickHealthy, healthInfo, ingCount, fitsEquipment, avoidStems, containsAvoided, recipeTime, recipeById, scaled, nutrition, dayNutrition, generatePlan, mealShares, shoppingList, swapOptions, costPerPortion, cookDays,
   fmtQty, fmtZl, round2,
 } from './planner.js';
 
@@ -8,14 +8,15 @@ import {
 const KEY = 'pudelko-v1';
 // Stały dzienny cel kalorii (ustawienie użytkowniczki), niezależnie od wcześniej zapisanych ustawień.
 const KCAL = 1500;
-const DEFAULT_SETTINGS = { budget: 50, days: 5, people: 1, breakfasts: false, diet: 'all', glutenFree: false, source: 'all', kcal: 1500, avoid: ['papryka'], lactoseFree: true, effort: 'min', oven: false, airfryer: true };
+const DEFAULT_SETTINGS = { budget: 100, days: 5, people: 1, breakfasts: true, suppers: true, diet: 'all', glutenFree: false, source: 'all', kcal: 1500, avoid: ['papryka'], lactoseFree: true, effort: 'min', oven: false, airfryer: true };
 const state = load();
 
 function load() {
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(KEY)) || {}; } catch {}
   return {
-    settings: { ...DEFAULT_SETTINGS, ...saved.settings, kcal: KCAL },
+    // Ustawienia sprzed dodania kolacji: włączamy śniadania i kolacje, żeby plan dawał pełne 1500 kcal.
+    settings: { ...DEFAULT_SETTINGS, ...saved.settings, kcal: KCAL, ...(saved.settings && !('suppers' in saved.settings) ? { breakfasts: true, suppers: true } : {}) },
     plan: saved.plan || null,
     fridge: saved.fridge || {},
     checked: saved.checked || {},
@@ -94,6 +95,7 @@ function renderPlan() {
   const pct = Math.min(100, (list.total / s.budget) * 100);
   const dinners = p.meals.map((m, i) => [m, i]).filter(([m]) => m.type === 'obiad');
   const breakfasts = p.meals.map((m, i) => [m, i]).filter(([m]) => m.type === 'sniadanie');
+  const suppers = p.meals.map((m, i) => [m, i]).filter(([m]) => m.type === 'kolacja');
   const sessions = cookDays(p.meals);
 
   return `
@@ -109,7 +111,7 @@ function renderPlan() {
       <div class="muted small">Budżet ${fmtZl(s.budget)} · ok. ${fmtZl(list.total / (s.days * s.people))} na osobę dziennie</div>
       ${prefsLine(s)}
       ${nutritionSummary(p)}
-      ${left < 0 ? `<p class="notice" style="margin:12px 0 0">Nie udało się zmieścić w budżecie. To najtańszy plan, jaki da się ułożyć z tych przepisów. Spróbuj krótszego okresu albo wyłącz śniadania.</p>` : ''}
+      ${left < 0 ? `<p class="notice" style="margin:12px 0 0">Przy ${KCAL.toLocaleString('pl-PL')} kcal dziennie ten plan kosztuje ok. ${fmtZl(list.total / (s.days * s.people))} na osobę dziennie, więc nie mieści się w budżecie. Podnieś budżet do ok. ${Math.ceil(list.total / 10) * 10} zł albo skróć okres.</p>` : ''}
       <div class="row" style="margin-top:14px">
         <a class="btn primary" href="#zakupy">Lista zakupów</a>
         <a class="btn" href="#gotowanie">Gotowanie</a>
@@ -119,6 +121,7 @@ function renderPlan() {
     <h2>Obiady</h2>
     ${dinners.map(([m, i]) => dishCard(m, i)).join('')}
     ${breakfasts.length ? `<h2>Śniadania</h2>${breakfasts.map(([m, i]) => dishCard(m, i)).join('')}` : ''}
+    ${suppers.length ? `<h2>Kolacje</h2>${suppers.map(([m, i]) => dishCard(m, i)).join('')}` : ''}
 
     <h2>Dzień po dniu</h2>
     <p class="muted small">${sessions.length === 1 ? 'Gotujesz raz, na początku. Potem tylko odgrzewasz.' : `Gotujesz ${sessions.length} razy: ${sessions.map((d) => dayLong(d)).join(', ')}.`}</p>
@@ -142,15 +145,16 @@ function prefsLine(s) {
 function nutritionSummary(p) {
   const days = Array.from({ length: p.settings.days }, (_, d) => dayNutrition(p.meals, d));
   const avg = (k) => Math.round(days.reduce((a, n) => a + n[k], 0) / days.length);
-  const what = p.meals.some((m) => m.type === 'sniadanie') ? 'śniadanie + obiad' : 'sam obiad';
-  const share = MEAL_SHARE.obiad + (p.meals.some((m) => m.type === 'sniadanie') ? MEAL_SHARE.sniadanie : 0);
+  const shares = mealShares(p.settings);
+  const names = { sniadanie: 'śniadanie', obiad: 'obiad', kolacja: 'kolacja' };
+  const split = ['sniadanie', 'obiad', 'kolacja'].filter((t) => shares[t]).map((t) => `${names[t]} ok. ${Math.round(p.settings.kcal * shares[t])}`).join(', ');
   return `
     <div class="nutri">
       <div><strong>${avg('kcal').toLocaleString('pl-PL')}</strong><span>kcal dziennie</span></div>
       <div><strong>${avg('protein')} g</strong><span>białka dziennie</span></div>
       <div><strong>${(avg('kcal') * p.settings.days).toLocaleString('pl-PL')}</strong><span>kcal w planie</span></div>
     </div>
-    <div class="muted small">Na osobę, ${what}.${p.settings.kcal ? ` Cel na te posiłki: ok. ${Math.round(p.settings.kcal * share).toLocaleString('pl-PL')} kcal (z ${p.settings.kcal.toLocaleString('pl-PL')} na cały dzień).` : ''} Kolacje i przekąski dolicz osobno.</div>`;
+    <div class="muted small">Na osobę. Cel ${p.settings.kcal.toLocaleString('pl-PL')} kcal dziennie: ${split} kcal. Przekąski dolicz osobno.</div>`;
 }
 
 const mealNutrition = (m) => { const n = nutrition(recipeById[m.recipeId]); const f = m.factor || 1; return { kcal: Math.round(n.kcal * f), protein: Math.round(n.protein * f) }; };
@@ -192,7 +196,7 @@ function dishCard(m, i) {
 
 function dayRow(d) {
   const items = [];
-  for (const type of ['sniadanie', 'obiad']) {
+  for (const type of ['sniadanie', 'obiad', 'kolacja']) {
     for (const m of state.plan.meals) {
       if (m.type !== type || !m.days.includes(d)) continue;
       const r = recipeById[m.recipeId];
@@ -200,7 +204,7 @@ function dayRow(d) {
       let note = '';
       if (batch.cookDay === d) note = d === 0 ? '' : ' <span class="pill accent">ugotuj dziś</span>';
       if (batch.freeze && d + 1 > r.keeps) note = ' <span class="pill">z zamrażarki</span>';
-      items.push(`<li>${type === 'sniadanie' ? '☀️' : '🍽️'} ${r.name}${note}</li>`);
+      items.push(`<li>${{ sniadanie: '☀️', obiad: '🍽️', kolacja: '🌙' }[type]} ${r.name}${note}</li>`);
     }
   }
   const n = dayNutrition(state.plan.meals, d);
@@ -259,7 +263,7 @@ function renderForm() {
       </div>
       <div class="field">
         <div class="label">Kalorie: ${KCAL.toLocaleString('pl-PL')} kcal dziennie</div>
-        <p class="muted small" style="margin:6px 0 0">Porcje dobieramy tak, żeby obiad miał ok. ${Math.round(KCAL * 0.4)} kcal, a śniadanie ok. ${Math.round(KCAL * 0.25)}. Zostaje ok. ${Math.round(KCAL * 0.35)} kcal na kolację i przekąski.</p>
+        <p class="muted small" style="margin:6px 0 0">Porcje dobieramy tak, żeby posiłki z planu dały razem ${KCAL.toLocaleString('pl-PL')} kcal: śniadanie ok. ${Math.round(KCAL * 0.3)}, obiad ok. ${Math.round(KCAL * 0.4)}, kolacja ok. ${Math.round(KCAL * 0.3)}. Bez któregoś posiłku pozostałe przejmują jego kalorie.</p>
       </div>
       <div class="field">
         <div class="label">Skąd przepisy?</div>
@@ -268,6 +272,7 @@ function renderForm() {
       <div class="field">
         <label class="switch"><span>Bez glutenu</span><input type="checkbox" name="glutenFree" ${s.glutenFree ? 'checked' : ''}></label>
         <label class="switch"><span>Planuj też śniadania</span><input type="checkbox" name="breakfasts" ${s.breakfasts ? 'checked' : ''}></label>
+        <label class="switch"><span>Planuj też kolacje</span><input type="checkbox" name="suppers" ${s.suppers ? 'checked' : ''}></label>
       </div>
       <button class="btn primary block" type="submit">Ułóż plan</button>
       ${state.plan ? '<button class="btn ghost block" type="button" data-action="cancel-edit" style="margin-top:8px">Anuluj</button>' : ''}
@@ -290,6 +295,7 @@ function readForm() {
   if (budget > 0) state.settings.budget = budget;
   state.settings.glutenFree = f.glutenFree.checked;
   state.settings.breakfasts = f.breakfasts.checked;
+  state.settings.suppers = f.suppers.checked;
   state.settings.lactoseFree = f.lactoseFree.checked;
   state.settings.oven = f.oven.checked;
   state.settings.airfryer = f.airfryer.checked;

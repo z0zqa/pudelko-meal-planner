@@ -121,7 +121,7 @@ export function fitsDiet(recipe, s) {
 }
 
 export function candidates(type, s) {
-  return ALL_RECIPES.filter((r) => r.type === type && fitsDiet(r, s));
+  return ALL_RECIPES.filter((r) => r.type === poolType(type) && fitsDiet(r, s));
 }
 
 // Ile różnych dań na dany okres: obiady co ~2-3 dni, śniadania co ~4 dni.
@@ -141,17 +141,29 @@ function splitDays(days, k) {
 // Rozkłada dania na kolejne dni: najpierw te, które najkrócej wytrzymują w lodówce.
 // Każde danie dzieli się na partie (batches): gotujesz wszystko pierwszego dnia, a jeśli danie
 // nie dotrwa do końca, a nie da się go mrozić, kolejną partię gotujesz świeżo w trakcie tygodnia.
-// Jaką część dziennych kalorii pokrywa posiłek.
-export const MEAL_SHARE = { obiad: 0.4, sniadanie: 0.25 };
-
-// Mnożnik porcji, żeby posiłek dał docelowe kalorie (np. 1,5 = półtorej porcji z przepisu).
-export function portionFactor(r, type, kcalTarget) {
-  if (!kcalTarget) return 1;
-  const k = nutrition(r).kcal || 1;
-  return Math.min(2.5, Math.max(0.5, Math.round(((kcalTarget * MEAL_SHARE[type]) / k) * 4) / 4));
+// Podział dziennych kalorii między posiłki. Liczymy tylko posiłki, które są w planie,
+// więc razem zawsze dają pełny cel (np. bez kolacji: śniadanie ok. 43%, obiad ok. 57%).
+const MEAL_BASE = { sniadanie: 0.3, obiad: 0.4, kolacja: 0.3 };
+export function mealShares(s) {
+  const on = ['obiad', s.breakfasts && 'sniadanie', s.suppers && 'kolacja'].filter(Boolean);
+  const sum = on.reduce((a, t) => a + MEAL_BASE[t], 0);
+  return Object.fromEntries(on.map((t) => [t, MEAL_BASE[t] / sum]));
 }
 
-export function schedule(recipeIds, type, days, people, kcalTarget) {
+// Kolacje bierzemy z tej samej puli lekkich dań co śniadania.
+export const poolType = (t) => (t === 'kolacja' ? 'sniadanie' : t);
+
+// Mnożnik porcji, żeby posiłek dał docelowe kalorie (np. 1,5 = półtorej porcji z przepisu).
+export function portionFactor(r, type, s) {
+  if (!s?.kcal) return 1;
+  const k = nutrition(r).kcal || 1;
+  const target = s.kcal * (mealShares(s)[type] || 0);
+  // Najwyżej podwójna porcja; gdy w planie jest tylko obiad, potrójna, żeby dobić do celu.
+  const cap = Object.keys(mealShares(s)).length === 1 ? 3 : 2;
+  return Math.min(cap, Math.max(0.5, Math.round((target / k) * 4) / 4));
+}
+
+export function schedule(recipeIds, type, days, people, s) {
   const counts = splitDays(days, recipeIds.length);
   const sorted = [...recipeIds].sort((a, b) => recipeById[a].keeps - recipeById[b].keeps);
   let day = 0;
@@ -159,7 +171,7 @@ export function schedule(recipeIds, type, days, people, kcalTarget) {
     const r = recipeById[id];
     const ds = Array.from({ length: counts[i] }, (_, j) => day + j);
     day += counts[i];
-    const factor = portionFactor(r, type, kcalTarget);
+    const factor = portionFactor(r, type, s);
     return { recipeId: id, type, days: ds, portions: counts[i] * people, factor, batches: batches(r, ds, people) };
   });
 }
@@ -255,9 +267,10 @@ export function dishKind(r) {
   return KINDS.find((k) => n.includes(k)) || n.split(' ')[0];
 }
 
-export function buildMeals(dinnerIds, breakfastIds, s) {
-  const meals = schedule(dinnerIds, 'obiad', s.days, s.people, s.kcal);
-  if (breakfastIds.length) meals.push(...schedule(breakfastIds, 'sniadanie', s.days, s.people, s.kcal));
+export function buildMeals(dinnerIds, breakfastIds, s, supperIds = []) {
+  const meals = schedule(dinnerIds, 'obiad', s.days, s.people, s);
+  if (breakfastIds.length) meals.push(...schedule(breakfastIds, 'sniadanie', s.days, s.people, s));
+  if (supperIds.length) meals.push(...schedule(supperIds, 'kolacja', s.days, s.people, s));
   return meals;
 }
 
@@ -266,17 +279,20 @@ export function buildMeals(dinnerIds, breakfastIds, s) {
 export function generatePlan(s, fridge = {}, rng = Math.random, tries = 2500) {
   const dinners = candidates('obiad', s);
   const breakfasts = s.breakfasts ? candidates('sniadanie', s) : [];
+  const suppers = s.suppers ? candidates('kolacja', s) : [];
   if (!dinners.length) return { error: 'Żaden obiad nie pasuje do tych ustawień. Poluzuj filtry: czas w kuchni, źródło przepisów, dietę albo listę „Czego nie jesz”.' };
 
   const kd = Math.min(dishCount('obiad', s.days, s.effort), dinners.length);
   const kb = s.breakfasts ? Math.min(dishCount('sniadanie', s.days, s.effort), breakfasts.length) : 0;
+  const kk = s.suppers ? Math.min(dishCount('sniadanie', s.days, s.effort), Math.max(0, suppers.length - kb)) : 0;
 
   const seen = new Set();
   const results = [];
   for (let t = 0; t < tries; t++) {
     const d = sample(dinners, kd, rng).map((r) => r.id).sort();
     const b = sample(breakfasts, kb, rng).map((r) => r.id).sort();
-    const key = d.join(',') + '|' + b.join(',');
+    const k = sample(suppers.filter((r) => !b.includes(r.id)), kk, rng).map((r) => r.id).sort();
+    const key = d.join(',') + '|' + b.join(',') + '|' + k.join(',');
     if (seen.has(key)) continue;
     seen.add(key);
     // Urozmaicenie: dwa obiady tego samego rodzaju (np. dwa razy naleśniki) odpadają.
@@ -286,16 +302,17 @@ export function generatePlan(s, fridge = {}, rng = Math.random, tries = 2500) {
       const rs = ids.map((id) => recipeById[id]);
       return dup(rs.map((r) => r.emoji).filter((e) => e !== '🍽️')) || dup(rs.map(dishKind));
     };
-    if (same(d) || same(b) || dup([...d, ...b].map((id) => dishKind(recipeById[id])))) continue;
-    const meals = buildMeals(d, b, s);
+    if (same(d) || same([...b, ...k]) || dup([...d, ...b, ...k].map((id) => dishKind(recipeById[id])))) continue;
+    const meals = buildMeals(d, b, s, k);
     const cost = planCost(meals, fridge, s);
     // Kary w rankingu: każde dodatkowe gotowanie w tygodniu i niedobór kalorii względem celu.
     let score = cost + (s.effort === 'min' || s.effort === 'ultra' ? 12 : 5) * (cookDays(meals).length - 1);
     if (s.kcal) {
-      const goal = s.kcal * (MEAL_SHARE.obiad + (b.length ? MEAL_SHARE.sniadanie : 0));
-      const avg = Array.from({ length: s.days }, (_, i) => dayNutrition(meals, i).kcal).reduce((a, x) => a + x, 0) / s.days;
-      // Kara za odchylenie w obie strony: za mało jedzenia i przekroczenie limitu.
-      score += Math.abs(goal - avg) / goal * s.budget;
+      const goal = s.kcal;
+      // Kara za odchylenie każdego dnia w obie strony (za mało jedzenia i przekroczenie limitu).
+      // Waży mocno, bo stały cel kalorii jest ważniejszy niż kilka złotych różnicy.
+      const dev = Array.from({ length: s.days }, (_, i) => Math.abs(goal - dayNutrition(meals, i).kcal)).reduce((a, x) => a + x, 0) / s.days;
+      score += (dev / goal) * s.budget * 3;
     }
     results.push({ meals, cost, score });
   }
@@ -305,10 +322,11 @@ export function generatePlan(s, fridge = {}, rng = Math.random, tries = 2500) {
   let pick;
   if (within.length) {
     // Losowo spośród mieszczących się w budżecie, z lekką preferencją tańszych.
-    const pool = within.slice(0, Math.max(1, Math.ceil(within.length * 0.6)));
+    const pool = within.slice(0, Math.max(1, Math.min(15, Math.ceil(within.length * 0.1))));
     pick = pool[Math.floor(rng() * pool.length)];
   } else {
-    pick = results.reduce((a, b) => (b.cost < a.cost ? b : a));
+    // Nic nie mieści się w budżecie: najlepszy wynik (koszt + trzymanie kalorii), a nie sam najtańszy.
+    pick = results[0];
   }
   return { meals: pick.meals, cost: pick.cost, overBudget: pick.cost > s.budget };
 }
@@ -317,7 +335,7 @@ export function generatePlan(s, fridge = {}, rng = Math.random, tries = 2500) {
 export function swapOptions(plan, index, fridge = {}) {
   const s = plan.settings;
   const current = plan.meals[index];
-  const used = new Set(plan.meals.filter((m) => m.type === current.type).map((m) => m.recipeId));
+  const used = new Set(plan.meals.filter((m) => poolType(m.type) === poolType(current.type)).map((m) => m.recipeId));
   return candidates(current.type, s)
     .filter((r) => !used.has(r.id))
     .map((r) => {
@@ -330,7 +348,7 @@ export function swapOptions(plan, index, fridge = {}) {
 export function replaceMeal(plan, index, newId) {
   const ids = plan.meals.map((m, i) => (i === index ? newId : m.recipeId));
   const ofType = (t) => ids.filter((_, i) => plan.meals[i].type === t);
-  return buildMeals(ofType('obiad'), ofType('sniadanie'), plan.settings);
+  return buildMeals(ofType('obiad'), ofType('sniadanie'), plan.settings, ofType('kolacja'));
 }
 
 export function grams(id, q) {

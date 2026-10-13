@@ -260,3 +260,6 @@ details.recipe .body { padding: 0 16px 16px; }
 .pill.price-tanie { background: var(--ok-soft); color: var(--ok); }
 .pill.price-srednie { background: var(--accent-soft); color: var(--accent); }
 .pill.price-drogie { background: var(--warn-soft); color: var(--warn); }
+
+.pill.taste-slodkie { background: var(--warn-soft); color: var(--warn); }
+.pill.taste-slone { background: var(--accent-soft); color: var(--accent); }

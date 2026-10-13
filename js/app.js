@@ -1,6 +1,6 @@
 import { INGREDIENTS, CATEGORIES, TAG_LABELS } from './data.js';
 import {
-  ALL_RECIPES, siteOf, SITES, priceTier, PRICE_LABELS, PRICE_LIMITS, EFFORT, norm, buyId, isQuickHealthy, healthInfo, ingCount, fitsEquipment, avoidStems, containsAvoided, recipeTime, recipeById, scaled, nutrition, dayNutrition, generatePlan, mealShares, shoppingList, swapOptions, costPerPortion, cookDays,
+  ALL_RECIPES, siteOf, SITES, taste, TASTE_LABELS, priceTier, PRICE_LABELS, PRICE_LIMITS, EFFORT, norm, buyId, isQuickHealthy, healthInfo, ingCount, fitsEquipment, avoidStems, containsAvoided, recipeTime, recipeById, scaled, nutrition, dayNutrition, generatePlan, mealShares, shoppingList, swapOptions, costPerPortion, cookDays,
   fmtQty, fmtZl, round2,
 } from './planner.js';
 
@@ -8,7 +8,7 @@ import {
 const KEY = 'pudelko-v1';
 // Stały dzienny cel kalorii (ustawienie użytkowniczki), niezależnie od wcześniej zapisanych ustawień.
 const KCAL = 1500;
-const DEFAULT_SETTINGS = { budget: 100, days: 5, people: 1, breakfasts: true, suppers: true, diet: 'all', glutenFree: false, source: 'all', kcal: 1500, avoid: ['papryka'], lactoseFree: true, effort: 'min', oven: false, airfryer: true, price: 'any' };
+const DEFAULT_SETTINGS = { budget: 100, days: 5, people: 1, breakfasts: true, suppers: true, diet: 'all', glutenFree: false, source: 'all', kcal: 1500, avoid: ['papryka'], lactoseFree: true, effort: 'min', oven: false, airfryer: true, price: 'any', breakfastTaste: 'any', supperTaste: 'any' };
 const state = load();
 
 function load() {
@@ -35,7 +35,7 @@ function load() {
   };
 }
 function save() {
-  const { recipeFilter, recipeSource, recipeQuery, recipeLimit, recipePrice, editing, quickType, quickMode, quickLimit, quickPrice, ...rest } = state;
+  const { recipeFilter, recipeSource, recipeQuery, recipeLimit, recipePrice, recipeTaste, editing, quickType, quickMode, quickLimit, quickPrice, quickTaste, ...rest } = state;
   try { localStorage.setItem(KEY, JSON.stringify(rest)); } catch {}
 }
 
@@ -155,6 +155,8 @@ function prefsLine(s) {
   const bits = [];
   if (s.avoid?.length) bits.push(`bez: ${s.avoid.join(', ')}`);
   if (s.lactoseFree) bits.push('bez laktozy');
+  if (s.breakfastTaste && s.breakfastTaste !== 'any') bits.push(`śniadania ${TASTE_LABELS[s.breakfastTaste]}`);
+  if (s.supperTaste && s.supperTaste !== 'any') bits.push(`kolacje ${TASTE_LABELS[s.supperTaste]}`);
   if (s.price && s.price !== 'any') bits.push(`${PRICE_LABELS[s.price]} dania`);
   if (s.effort && s.effort !== 'any') bits.push(s.effort === 'min' ? 'szybkie dania, mało gotowania' : 'dania do 75 min');
   return bits.length ? `<div class="row" style="margin-top:8px">${bits.map((b) => `<span class="pill">${b}</span>`).join('')}</div>` : '';
@@ -179,6 +181,8 @@ const mealNutrition = (m) => { const n = nutrition(recipeById[m.recipeId]); cons
 const fmtFactor = (f) => String(f).replace('.', ',');
 const portionSize = (m) => (m.factor && m.factor !== 1 ? ` po ×${fmtFactor(m.factor)}` : '');
 
+const tastePill = (r) => (r.type === 'sniadanie' ? `<span class="pill taste-${taste(r)}">${TASTE_LABELS[taste(r)]}</span>` : '');
+const tasteChips = (action, cur) => [['any', 'Słodkie i słone'], ['slodkie', 'Na słodko'], ['slone', 'Na słono']].map(([v, l]) => `<button class="chip" data-action="${action}" data-v="${v}" aria-pressed="${(cur || 'any') === v}">${l}</button>`).join('');
 const pricePill = (r, s) => { const t = priceTier(r, s); return `<span class="pill price-${t}">${PRICE_LABELS[t]}</span>`; };
 const priceChips = (action, cur) => ['any', 'tanie', 'srednie', 'drogie'].map((v) => `<button class="chip" data-action="${action}" data-v="${v}" aria-pressed="${(cur || 'any') === v}">${v === 'any' ? 'Każda cena' : PRICE_LABELS[v][0].toUpperCase() + PRICE_LABELS[v].slice(1)}</button>`).join('');
 
@@ -204,7 +208,7 @@ function dishCard(m, i) {
       <div class="emoji">${r.emoji}</div>
       <div>
         <h3>${r.name}</h3>
-        <div class="meta">${portionsTxt(m.portions)}${portionSize(m)} · ${daysRange(m.days)} · ${kcalTxt(mealNutrition(m))} · ok. ${fmtZl(costPerPortion(r, state.plan.settings) * (m.factor || 1))}/porcja ${pricePill(r, state.plan.settings)}</div>
+        <div class="meta">${portionsTxt(m.portions)}${portionSize(m)} · ${daysRange(m.days)} · ${kcalTxt(mealNutrition(m))} · ok. ${fmtZl(costPerPortion(r, state.plan.settings) * (m.factor || 1))}/porcja ${pricePill(r, state.plan.settings)} ${tastePill(r)}</div>
         ${tags.length ? `<div class="row" style="margin-top:6px">${tags.join('')}</div>` : ''}
         <div class="row">
           <button class="btn small" data-action="swap" data-i="${i}">Zamień</button>
@@ -235,6 +239,7 @@ function dayRow(d) {
 function renderForm() {
   const s = state.settings;
   const effortChip = (v, label) => `<button type="button" class="chip" data-action="effort" data-v="${v}" aria-pressed="${(s.effort || 'any') === v}">${label}</button>`;
+  const tasteChip = (k, v, label) => `<button type="button" class="chip" data-action="taste" data-k="${k}" data-v="${v}" aria-pressed="${(s[k] || 'any') === v}">${label}</button>`;
   const priceChip = (v, label) => `<button type="button" class="chip" data-action="price" data-v="${v}" aria-pressed="${(s.price || 'any') === v}">${label}</button>`;
   const srcChip = (v, label) => `<button class="chip" data-action="source" data-v="${v}" aria-pressed="${s.source === v}">${label}</button>`;
   const dietChip = (v, label) => `<button class="chip" data-action="diet" data-v="${v}" aria-pressed="${s.diet === v}">${label}</button>`;
@@ -286,6 +291,12 @@ function renderForm() {
       <div class="field">
         <div class="label">Kalorie: ${KCAL.toLocaleString('pl-PL')} kcal dziennie</div>
         <p class="muted small" style="margin:6px 0 0">Porcje dobieramy tak, żeby posiłki z planu dały razem ${KCAL.toLocaleString('pl-PL')} kcal: śniadanie ok. ${Math.round(KCAL * 0.3)}, obiad ok. ${Math.round(KCAL * 0.4)}, kolacja ok. ${Math.round(KCAL * 0.3)}. Gdy przy Twoich filtrach brakuje śniadań lub kolacji, bierzemy je z innych źródeł.</p>
+      </div>
+      <div class="field">
+        <div class="label">Śniadania</div>
+        <div class="chips">${tasteChip('breakfastTaste', 'any', 'Obojętnie')}${tasteChip('breakfastTaste', 'slodkie', 'Na słodko')}${tasteChip('breakfastTaste', 'slone', 'Na słono')}</div>
+        <div class="label" style="margin-top:12px">Kolacje</div>
+        <div class="chips">${tasteChip('supperTaste', 'any', 'Obojętnie')}${tasteChip('supperTaste', 'slodkie', 'Na słodko')}${tasteChip('supperTaste', 'slone', 'Na słono')}</div>
       </div>
       <div class="field">
         <div class="label">Ceny dań</div>
@@ -582,6 +593,7 @@ function renderRecipes() {
     <input class="input" type="search" id="recipe-search" placeholder="Szukaj: gulasz, kurczak, naleśniki…" value="${state.recipeQuery.replace(/"/g, '&quot;')}" aria-label="Szukaj przepisu" style="margin-bottom:10px">
     <div class="chips" style="margin-bottom:8px">${chip('rsource', src, 'all', 'Wszystkie')}${chip('rsource', src, 'ania', 'Ania Gotuje')}${chip('rsource', src, 'lidl', 'Kuchnia Lidla')}${chip('rsource', src, 'ks', 'Kwestia Smaku')}${chip('rsource', src, 'respo', 'Respo')}${chip('rsource', src, 'own', 'Wbudowane')}</div>
     <div class="chips" style="margin-bottom:8px">${priceChips('rprice', state.recipePrice)}</div>
+    ${f === 'sniadanie' ? `<div class="chips" style="margin-bottom:8px">${tasteChips('rtaste', state.recipeTaste)}</div>` : ''}
     <div class="chips" style="margin-bottom:14px">${chip('rfilter', f, 'obiad', 'Obiady')}${chip('rfilter', f, 'sniadanie', 'Śniadania')}${chip('rfilter', f, 'wege', 'Wege')}${chip('rfilter', f, 'wegan', 'Wegańskie')}${chip('rfilter', f, 'bezgl', 'Bez glutenu')}</div>
     <div id="recipe-list">${recipeList()}</div>`;
 }
@@ -593,7 +605,7 @@ function recipeList() {
   const q = norm(state.recipeQuery.trim());
   const stems = avoidStems(state.settings.avoid);
   const pr = state.recipePrice || 'any';
-  const all = ALL_RECIPES.filter((r) => (r.type === f || r.tags.includes(f)) && (src === 'all' || siteOf(r) === src) && (pr === 'any' || priceTier(r, state.settings) === pr));
+  const all = ALL_RECIPES.filter((r) => (r.type === f || r.tags.includes(f)) && (src === 'all' || siteOf(r) === src) && (pr === 'any' || priceTier(r, state.settings) === pr) && (f !== 'sniadanie' || !state.recipeTaste || state.recipeTaste === 'any' || taste(r) === state.recipeTaste));
   const base = all.filter((r) => !containsAvoided(r, stems) && fitsEquipment(r, state.settings));
   const hidden = all.length - base.length;
   // Najpierw trafienia w nazwie dania, potem dania z takim składnikiem.
@@ -607,7 +619,7 @@ function recipeList() {
     ${shown.map((r) => `
       <button class="option" data-action="recipe" data-id="${r.id}">
         <span class="emoji">${r.emoji}</span>
-        <span><strong>${r.name}</strong><br><span class="muted small">ok. ${fmtZl(costPerPortion(r, state.settings))}/porcja ${pricePill(r, state.settings)} · ${kcalTxt(nutrition(r))} · ${minTxt(recipeTime(r))}${siteTag(r)}</span></span>
+        <span><strong>${r.name}</strong><br><span class="muted small">ok. ${fmtZl(costPerPortion(r, state.settings))}/porcja ${pricePill(r, state.settings)} ${tastePill(r)} · ${kcalTxt(nutrition(r))} · ${minTxt(recipeTime(r))}${siteTag(r)}</span></span>
         <span></span>
       </button>`).join('')}
     ${list.length > shown.length ? `<button class="btn block" data-action="more">Pokaż więcej (${list.length - shown.length})</button>` : ''}`;
@@ -624,6 +636,7 @@ function renderQuick() {
     .filter((r) => r.type === f && isQuickHealthy(r) && fitsEquipment(r, s) && !containsAvoided(r, stems))
     .filter((r) => mode === 'all' || (mode === 'af' ? r.af : r.nocook))
     .filter((r) => !state.quickPrice || state.quickPrice === 'any' || priceTier(r, s) === state.quickPrice)
+    .filter((r) => f !== 'sniadanie' || !state.quickTaste || state.quickTaste === 'any' || taste(r) === state.quickTaste)
     .map((r) => ({ r, h: healthInfo(r) }))
     .sort((a, b) => b.h.score - a.h.score);
   const shown = list.slice(0, state.quickLimit || 30);
@@ -633,14 +646,15 @@ function renderQuick() {
     <p class="muted">Obiady do 25 minut, śniadania do 15. Najwyżej 7 produktów do kupienia, sporo białka, warzywa, bez smażenia w głębokim tłuszczu.</p>
     <div class="chips" style="margin-bottom:8px">${chip('qtype', f, 'obiad', 'Obiady')}${chip('qtype', f, 'sniadanie', 'Śniadania')}</div>
     <div class="chips" style="margin-bottom:8px">${chip('qmode', mode, 'all', 'Wszystkie')}${chip('qmode', mode, 'af', 'Air fryer')}${chip('qmode', mode, 'nocook', 'Bez gotowania')}</div>
-    <div class="chips" style="margin-bottom:12px">${priceChips('qprice', state.quickPrice)}</div>
+    <div class="chips" style="margin-bottom:${f === 'sniadanie' ? 8 : 12}px">${priceChips('qprice', state.quickPrice)}</div>
+    ${f === 'sniadanie' ? `<div class="chips" style="margin-bottom:12px">${tasteChips('qtaste', state.quickTaste)}</div>` : ''}
     <p class="muted small">${list.length} ${plural(list.length, 'przepis', 'przepisy', 'przepisów')}${s.avoid?.length ? ` · bez: ${s.avoid.join(', ')}` : ''}${s.oven === false ? ' · bez piekarnika' : ''}</p>
     ${shown.map(({ r, h }) => `
       <article class="card dish">
         <div class="emoji">${r.emoji}</div>
         <div style="min-width:0">
           <h3>${r.name}</h3>
-          <div class="meta">${minTxt(recipeTime(r))} · ${ingCount(r)} ${plural(ingCount(r), 'produkt', 'produkty', 'produktów')} · ${h.protein} g białka · ${h.kcal} kcal · ok. ${fmtZl(costPerPortion(r, s))} ${pricePill(r, s)}${siteTag(r)}</div>
+          <div class="meta">${minTxt(recipeTime(r))} · ${ingCount(r)} ${plural(ingCount(r), 'produkt', 'produkty', 'produktów')} · ${h.protein} g białka · ${h.kcal} kcal · ok. ${fmtZl(costPerPortion(r, s))} ${pricePill(r, s)} ${tastePill(r)}${siteTag(r)}</div>
           ${equipmentPill(r, s) ? `<div class="row" style="margin-top:6px">${equipmentPill(r, s)}</div>` : ''}
           <div class="row">
             ${r.source ? aniaBtn(r, 'btn small') : `<button class="btn small" data-action="recipe" data-id="${r.id}">Przepis</button>`}
@@ -662,6 +676,7 @@ function recipeBody(r) {
       <span class="pill accent">${kcalTxt(n)} · ${n.protein} g białka / porcja</span>
       <span class="pill">ok. ${fmtZl(costPerPortion(r, state.settings))}/porcja</span>
       ${pricePill(r, state.settings)}
+      ${tastePill(r)}
       <span class="pill">${daysTxt(r.keeps)} w lodówce${r.freezes ? ', mrozi się' : ''}</span>
       ${equipmentPill(r, state.settings)}
       ${r.tags.map((t) => `<span class="pill">${TAG_LABELS[t]}</span>`).join('')}
@@ -814,6 +829,9 @@ document.addEventListener('click', async (e) => {
     case 'source': readForm(); s.source = el.dataset.v; break;
     case 'effort': readForm(); s.effort = el.dataset.v; break;
     case 'price': readForm(); s.price = el.dataset.v; break;
+    case 'taste': readForm(); s[el.dataset.k] = el.dataset.v; break;
+    case 'qtaste': state.quickTaste = el.dataset.v; state.quickLimit = 30; break;
+    case 'rtaste': state.recipeTaste = el.dataset.v; state.recipeLimit = 40; break;
     case 'clear-history': readForm(); state.history = []; toast('Historia wyczyszczona'); break;
     case 'rprice': state.recipePrice = el.dataset.v; state.recipeLimit = 40; break;
     case 'qprice': state.quickPrice = el.dataset.v; state.quickLimit = 30; break;

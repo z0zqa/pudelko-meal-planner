@@ -98,7 +98,7 @@ export const recipeTime = (r) => r.totalTime || (r.steps || []).reduce((a, x) =>
 
 // Dania, przy których stoi się przy patelni (smażenie partiami, lepienie) albo czeka na ciasto
 // drożdżowe. Czas ze strony często tego nie obejmuje, więc w trybie „Minimum” je pomijamy.
-const LABOR = /plac(ek|ki|uszk)|naleśnik|nalesnik|racuch|krokiet|pierog|pierożk|kotlet|kopytk|klusk|knedl|gofr|pancake|frytk|gołąb|golab|uszk|pyz|kluch|tortellin|ravioli|pasztecik|drożdż|drozdz|proziak|podpłomyk|wieniec|bułk|chleb|ciasto|gnocchi|własnej roboty|domow\w* makaron|lazani|lasagn|roladk|rolad/;
+const LABOR = /plac(ek|ki|uszk)|naleśnik|nalesnik|racuch|krokiet|pierog|pierożk|kotlet|kotlecik|kopytk|klusk|knedl|gofr|pancake|frytk|gołąb|golab|uszk|pyz|kluch|tortellin|ravioli|pasztecik|drożdż|drozdz|proziak|podpłomyk|wieniec|bułk|chleb|ciasto|gnocchi|własnej roboty|domow\w* makaron|lazani|lasagn|roladk|rolad/;
 
 // Poziom ceny porcji: obiady tanie do 5 zł, średnie do 9 zł; śniadania i kolacje do 3 i do 6 zł.
 export const PRICE_LIMITS = { obiad: [5, 9], sniadanie: [3, 6] };
@@ -137,8 +137,31 @@ export function fitsDiet(recipe, s) {
   return true;
 }
 
+// ── Na słodko / na słono (śniadania i kolacje) ──
+const SWEET_NAME = /biszkopt|cesarski|kaiserschmarrn|brzoskw|morel|karmel|syrop|wanili|budyniow|kokos|nutell|powidł|konfitur|bakali|rodzyn|daktyl|figi|mango|ananas|owsiank|naleśnik|nalesnik|placusz|pancake|gofr|racuch|jaglank|pudding|smoothie|koktajl|granol|musli|słodk|slodk|czekolad|kakao|budyń|budyn|na mleku|kasza manna|kaszka|chia|owoc|banan|jabł|jabl|gruszk|truskaw|malin|borówk|jagod|śliwk|dyni.*cynamon|cynamon|dżem|miód|miod|tosty francusk|french toast|brioch|drożdżówk|bułeczk.*słod|rogal|twarożek na słodko|serniczk|ryż na mleku|shake/;
+const SAVORY_NAME = /jajeczn|jajk|jaja|omlet|szakszuk|frittat|kanapk|tost(?!y francusk)|pasta (z|jajeczn)|hummus|twarożek(?! na słodko)|serek wiejski z|szynk|łoso|losos|tuńczyk|tunczyk|śledź|sledz|makrel|awokado|pomidor|ogór|ogor|sałatk|salatk|wrap|tortill|burrito|quesadill|zapiekank|grzank|bruschett|caprese|ser |serem|pieczark|szpinak|warzyw|kiełbas|parów|bekon|boczek|zup/;
+const SWEET_ING = ['owoce', 'banany', 'jablka', 'miod', 'kakao', 'masloOrz', 'rodzynki', 'pomarancza'];
+const SAVORY_ING = ['jajka', 'szynka', 'kielbasa', 'parowki', 'boczek', 'losos', 'lososWedzony', 'tunczyk', 'sledz', 'rybaBiala', 'pomidor', 'ogorek', 'ogorekKiszony', 'cebula', 'czosnek', 'szczypiorek', 'rzodkiewka', 'salata', 'awokado', 'pieczarki', 'papryka', 'szpinak', 'feta', 'mozzarella', 'ser', 'ciecierzyca', 'fasola', 'majonez', 'musztarda'];
+export function taste(r) {
+  if (r._taste) return r._taste;
+  const n = r.name.toLowerCase();
+  // Nazwy jednoznacznie słodkie, nawet gdy w składnikach dominują jajka.
+  if (/cesarski|kaiserschmarrn|biszkopt|na słodko|na slodko|french toast|tosty francusk/.test(n)) return (r._taste = 'slodkie');
+  const ids = Object.keys(r.ing);
+  let sweet = ids.filter((id) => SWEET_ING.includes(id)).length + ((r.ing.cukier || 0) > 10 ? 1 : 0);
+  let savory = ids.filter((id) => SAVORY_ING.includes(id)).length;
+  // Nazwa waży najwięcej: „Owsianka…” jest słodka, nawet z orzechami; „Omlet…” słony.
+  if (SWEET_NAME.test(n)) sweet += 4;
+  if (SAVORY_NAME.test(n)) savory += 3;
+  r._taste = sweet > savory ? 'slodkie' : 'slone';
+  return r._taste;
+}
+export const TASTE_LABELS = { slodkie: 'na słodko', slone: 'na słono' };
+
 export function candidates(type, s) {
-  return ALL_RECIPES.filter((r) => r.type === poolType(type) && fitsDiet(r, s));
+  // Smak: śniadania według s.breakfastTaste, kolacje według s.supperTaste.
+  const want = type === 'sniadanie' ? s.breakfastTaste : type === 'kolacja' ? s.supperTaste : null;
+  return ALL_RECIPES.filter((r) => r.type === poolType(type) && fitsDiet(r, s) && (!want || want === 'any' || taste(r) === want));
 }
 
 // Ile różnych dań na dany okres: obiady co ~2-3 dni, śniadania co ~4 dni.
@@ -296,7 +319,7 @@ export function buildMeals(dinnerIds, breakfastIds, s, supperIds = []) {
 // Kandydaci z łagodzeniem filtrów, gdy nic nie zostaje: najpierw inne źródła, potem dłuższy czas,
 // na końcu bez „Bez glutenu”. „Czego nie jesz”, dieta i sprzęt zostają zawsze.
 export function candidatesRelaxed(type, s) {
-  const steps = [s, { ...s, source: 'all' }, { ...s, source: 'all', effort: s.effort === 'ultra' ? 'min' : 'normal' }, { ...s, source: 'all', effort: 'any' }, { ...s, source: 'all', effort: 'any', price: 'any' }, { ...s, source: 'all', effort: 'any', price: 'any', glutenFree: false }, { ...s, source: 'all', effort: 'any', price: 'any', glutenFree: false, excluded: [] }];
+  const steps = [s, { ...s, source: 'all' }, { ...s, source: 'all', effort: s.effort === 'ultra' ? 'min' : 'normal' }, { ...s, source: 'all', effort: 'any' }, { ...s, source: 'all', effort: 'any', price: 'any' }, { ...s, source: 'all', effort: 'any', price: 'any', glutenFree: false }, { ...s, source: 'all', effort: 'any', price: 'any', glutenFree: false, excluded: [] }, { ...s, source: 'all', effort: 'any', price: 'any', glutenFree: false, excluded: [], breakfastTaste: 'any', supperTaste: 'any' }];
   for (const x of steps) {
     const c = candidates(type, x);
     if (c.length >= (type === 'obiad' ? 1 : 2)) return c;

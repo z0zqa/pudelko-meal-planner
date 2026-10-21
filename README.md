@@ -1,14 +1,18 @@
 # Pudełko 🥡
 
-Planer posiłków na budżet, podobny do [prepka.pl](https://prepka.pl). Wpisujesz, ile chcesz wydać i na ile dni, a aplikacja:
+Prywatny planer posiłków na budżet, podobny do [prepka.pl](https://prepka.pl). Wpisujesz budżet i liczbę dni, a aplikacja układa jadłospis, listę zakupów i plan gotowania.
 
-- **Plan**: dobiera obiady (i opcjonalnie śniadania) tak, żeby zakupy zmieściły się w budżecie. Każde danie można zamienić i od razu widać, jak zmieni się koszt zakupów.
-- **Zakupy**: liczy listę zakupów w **całych opakowaniach**, z cenami, z podziałem na działy sklepu. Pokazuje, ile czego zostanie. Listę możesz odhaczać i skopiować.
-- **Gotowanie**: rozpisuje meal prep: co gotujesz pierwszego dnia, co w trakcie tygodnia (gdy danie nie wytrzyma w lodówce), co mrozisz. Kroki można odhaczać.
-- **Lodówka**: produkty, które już masz. Nowy plan je wykorzysta, a resztki z poprzedniego planu trafiają tu jednym kliknięciem.
-- **Przepisy**: 26 przepisów (obiady i śniadania), filtry wege, wegańskie i bez glutenu.
+- **Plan**: każdego dnia śniadanie, obiad i kolacja, razem ok. **1500 kcal**. Porcje są dopasowywane do kalorii. Każde danie można wylosować od nowa albo zamienić, a koszt zakupów przelicza się od razu.
+- **Preferencje**: lista składników do unikania (domyślnie papryka), mleko bez laktozy lub roślinne, tryb „jak najmniej przy garach” (krótki czas, bez kotletów i panierowania), air fryer zamiast piekarnika, cena dania (tanie / średnie / drogie), śniadania i kolacje na słodko lub na słono, wybór źródła przepisów.
+- **Rotacja**: dania z ostatnich 2 tygodni nie wracają, a kolejne losowania tego samego dnia dają naprawdę inne dania.
+- **Ulubione**: 👍 i 👎 przy daniach. Aplikacja uczy się, jakie składniki i połączenia smakowe lubisz, i częściej je proponuje. Odrzucone dania już się nie pojawiają.
+- **Zakupy**: lista w **całych opakowaniach**, z cenami, po działach sklepu. Odhaczone produkty trafiają do lodówki.
+- **Gotowanie**: rozpisany meal prep: co gotujesz pierwszego dnia, co w trakcie tygodnia, co mrozisz.
+- **Szybkie**: ultra proste i zdrowe przepisy, także śniadania bez gotowania.
+- **Lodówka**: wpisujesz, co masz. Nowy plan to wykorzysta, a ugotowane dania zdejmują produkty z lodówki.
+- **Przepisy**: kilka tysięcy dań z czterech serwisów, z filtrami (źródło, cena, słodkie/słone, ulubione).
 
-Bez konta, bez reklam, dane zostają w przeglądarce (localStorage). Działa offline i można ją zainstalować na telefonie (PWA).
+Bez konta, dane zostają w przeglądarce (localStorage). Działa offline i można ją zainstalować na telefonie (PWA).
 
 ## Uruchomienie
 
@@ -19,12 +23,14 @@ python3 -m http.server 8000
 # otwórz http://localhost:8000
 ```
 
-Można też opublikować przez GitHub Pages (Settings → Pages → branch `main`, folder `/`).
+Albo `node tools/build-single.mjs pudelko.html`, żeby złożyć całość w jeden plik.
+
+**Nie publikuj tej wersji** (np. przez GitHub Pages): zawiera dane z cudzych serwisów i jest wyłącznie na własny użytek.
 
 ## Jak to działa
 
-- `js/data.js`: produkty (wielkość opakowania i orientacyjna cena) oraz przepisy (składniki na N porcji, kroki, ile dni wytrzymuje w lodówce, czy się mrozi).
-- `js/planner.js`: algorytm. Losuje kilka tysięcy kombinacji dań, dla każdej liczy koszt zakupów w całych opakowaniach (minus to, co masz w lodówce) i wybiera losowo spośród tańszych planów mieszczących się w budżecie. Dania, które dzielą składniki, wychodzą więc taniej. Plany wymagające dodatkowego gotowania w tygodniu dostają karę w rankingu.
+- `js/data.js`: produkty (wielkość opakowania i orientacyjna cena) oraz własne przepisy (w tym dania z air fryera i śniadania bez gotowania).
+- `js/planner.js`: algorytm. Losuje kilka tysięcy kombinacji dań, dla każdej liczy koszt zakupów w całych opakowaniach (minus to, co masz w lodówce) i wybiera losowo spośród tańszych planów mieszczących się w budżecie. Dania, które dzielą składniki, wychodzą więc taniej. Plany wymagające dodatkowego gotowania w tygodniu albo odbiegające od 1500 kcal dostają karę w rankingu, a dania pasujące do Twojego gustu premię.
 - `js/app.js`: interfejs (czysty JavaScript, bez frameworka i bez kroku budowania).
 
 Ceny są orientacyjne. Żeby je zaktualizować, zmień pole `price` w `js/data.js`.

@@ -98,7 +98,7 @@ export const recipeTime = (r) => r.totalTime || (r.steps || []).reduce((a, x) =>
 
 // Dania, przy których stoi się przy patelni (smażenie partiami, lepienie) albo czeka na ciasto
 // drożdżowe. Czas ze strony często tego nie obejmuje, więc w trybie „Minimum” je pomijamy.
-const LABOR = /plac(ek|ki|uszk)|naleśnik|nalesnik|racuch|krokiet|pierog|pierożk|kotlet|kotlecik|kopytk|klusk|knedl|gofr|pancake|frytk|gołąb|golab|uszk|pyz|kluch|tortellin|ravioli|pasztecik|drożdż|drozdz|proziak|podpłomyk|wieniec|bułk|chleb|ciasto|gnocchi|własnej roboty|domow\w* makaron|lazani|lasagn|roladk|rolad/;
+const LABOR = /plac(ek|ki|uszk)|naleśnik|nalesnik|racuch|krokiet|pierog|pierożk|kotlet|kotlecik|devolay|schabow|panierowan|kopytk|klusk|knedl|gofr|pancake|frytk|gołąb|golab|uszk|pyz|kluch|tortellin|ravioli|pasztecik|drożdż|drozdz|proziak|podpłomyk|wieniec|bułk|chleb|ciasto|gnocchi|własnej roboty|domow\w* makaron|lazani|lasagn|roladk|rolad/;
 
 // Poziom ceny porcji: obiady tanie do 5 zł, średnie do 9 zł; śniadania i kolacje do 3 i do 6 zł.
 export const PRICE_LIMITS = { obiad: [5, 9], sniadanie: [3, 6] };
@@ -126,7 +126,9 @@ export function fitsDiet(recipe, s) {
   if (s.diet === 'wege' && !recipe.tags.includes('wege')) return false;
   if (s.diet === 'wegan' && !recipe.tags.includes('wegan')) return false;
   if (s.glutenFree && !recipe.tags.includes('bezgl')) return false;
-  // Dania z poprzednich tygodni (po id i po nazwie, bo to samo danie bywa w kilku źródłach).
+  // „Nie dla mnie” obowiązuje zawsze, także gdy planer luzuje inne filtry.
+  if (s.disliked?.length && s.disliked.includes(recipe.id)) return false;
+  // Dania z poprzednich tygodni i z dzisiejszych losowań (po id i po nazwie, bo to samo danie bywa w kilku źródłach).
   if (s.excluded?.length) {
     const key = s.excluded.join('|');
     if (!recentCache.has(key)) recentCache.set(key, new Set(s.excluded));
@@ -516,7 +518,8 @@ export function generatePlan(s, fridge = {}, rng = Math.random, tries = 2500) {
   let chosen;
   if (within.length) {
     // Losowo spośród mieszczących się w budżecie, z lekką preferencją tańszych.
-    const pool = within.slice(0, Math.max(1, Math.min(15, Math.ceil(within.length * 0.1))));
+    // Szersza pula dobrych planów = większa różnorodność przy kolejnych losowaniach.
+    const pool = within.slice(0, Math.max(1, Math.min(60, Math.ceil(within.length * 0.3))));
     chosen = pool[Math.floor(rng() * pool.length)];
   } else {
     // Nic nie mieści się w budżecie: najlepszy wynik (koszt + trzymanie kalorii), a nie sam najtańszy.

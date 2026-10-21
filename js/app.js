@@ -26,6 +26,7 @@ function load() {
     // żeby odznaczenie mogło to cofnąć.
     // Plany z poprzednich tygodni: { start, ids, names } — żeby nowy plan nie powtarzał dań.
     history: saved.history || [],
+    seenToday: saved.seenToday || null,
     // Oceny dań: ♥ (lubię) i 👎 (nie dla mnie), z datą. Z nich powstaje profil gustu.
     likes: saved.likes || {},
     dislikes: saved.dislikes || {},
@@ -394,6 +395,13 @@ function archivePlan() {
   state.history = state.history.filter((h) => h.start >= todayStart() - HISTORY_DAYS * DAY);
 }
 
+// Dania pokazane w dzisiejszych losowaniach (najwyżej ok. 120 ostatnich).
+function rememberSeen(plan) {
+  if (state.seenToday?.day !== todayStart()) state.seenToday = { day: todayStart(), ids: [] };
+  const ids = plan.meals.flatMap((m) => [m.recipeId, norm(recipeById[m.recipeId]?.name || '')]);
+  state.seenToday.ids = [...new Set([...state.seenToday.ids, ...ids])].slice(-120);
+}
+
 function recentDishes() {
   const fresh = state.history.filter((h) => h.start >= todayStart() - HISTORY_DAYS * DAY);
   return [...new Set(fresh.flatMap((h) => [...h.ids, ...h.names]))];
@@ -401,9 +409,12 @@ function recentDishes() {
 
 function makePlan() {
   // Plan z wcześniejszego dnia był już w użyciu, więc trafia do historii.
-  // „Wylosuj inne dania” tego samego dnia tylko go zastępuje.
+  // „Wylosuj inne dania” tego samego dnia tylko go zastępuje, a jego dania odkładamy na bok,
+  // żeby kolejne losowanie dało coś nowego.
   if (state.plan && state.plan.start < todayStart()) archivePlan();
-  const s = { ...state.settings, excluded: [...recentDishes(), ...Object.keys(state.dislikes)] };
+  else if (state.plan) rememberSeen(state.plan);
+  if (state.seenToday?.day !== todayStart()) state.seenToday = { day: todayStart(), ids: [] };
+  const s = { ...state.settings, excluded: [...recentDishes(), ...state.seenToday.ids], disliked: Object.keys(state.dislikes) };
   const prefs = tasteProfile();
   const res = generatePlan({ ...s, prefs }, state.fridge);
   if (res.error) return toast(res.error);

@@ -263,3 +263,6 @@ details.recipe .body { padding: 0 16px 16px; }
 
 .pill.taste-slodkie { background: var(--warn-soft); color: var(--warn); }
 .pill.taste-slone { background: var(--accent-soft); color: var(--accent); }
+
+.btn.rate.on { color: var(--warn); }
+.btn.rate.on-no { color: var(--muted); background: var(--surface-2); }

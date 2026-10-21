@@ -291,6 +291,110 @@ export function costPerPortion(recipe, s) {
   return c / recipe.serves;
 }
 
+// ── Nauka gustu ──
+// Cechy dania: składniki, słowa ze składników i przypraw (rdzenie, np. „cytry”, „curry”) i rodzaj dania.
+const BORING = new Set(['i:przyprawy', 'i:olej', 'i:cebula', 'i:czosnek', 'w:cebul', 'w:czosn', 'w:olej', 'w:oliwa', 'w:maslo', 'w:masla', 'w:wody', 'w:woda']);
+const NAME_STOP = new Set(['przepis', 'domowy', 'domowa', 'domowe', 'szybki', 'szybka', 'szybkie', 'prosty', 'prosta', 'proste', 'najlepszy', 'klasyczny', 'klasyczna', 'pyszny', 'pyszna', 'zdrowy', 'zdrowa', 'lekki', 'lekka', 'wersji', 'stylu', 'sposob', 'sposoby'] );
+export function features(r) {
+  if (r._f) return r._f;
+  const f = new Set();
+  for (const id of Object.keys(r.ing)) if (!INGREDIENTS[id].pantry || id === 'maslo') f.add('i:' + id);
+  for (const w of (r.words || '').split(' ')) if (w.length >= 4) f.add('w:' + w.slice(0, 5));
+  // Słowa z nazwy („Imbirowy kurczak”, „…z cytryną”) też mówią o smaku.
+  for (const w of norm(r.name).split(/[^a-z]+/)) if (w.length >= 5 && !NAME_STOP.has(w)) f.add('w:' + w.slice(0, 5));
+  f.add('k:' + dishKind(r));
+  r._f = [...f].filter((x) => !BORING.has(x));
+  return r._f;
+}
+
+// Rzadkie cechy mówią o guście więcej niż częste (IDF).
+let IDF = null;
+function idf(f) {
+  if (!IDF) {
+    const df = new Map();
+    for (const r of ALL_RECIPES) for (const x of features(r)) df.set(x, (df.get(x) || 0) + 1);
+    IDF = new Map([...df].map(([x, n]) => [x, Math.log(ALL_RECIPES.length / (1 + n))]));
+  }
+  return IDF.get(f) || 0;
+}
+
+// Profil gustu z ulubionych (+) i „nie dla mnie” (−): wagi cech i par cech (połączenia smakowe).
+export function buildProfile(likedIds = [], dislikedIds = []) {
+  const w = new Map();
+  const pairs = new Map();
+  const pos = new Set();
+  const add = (ids, sign) => {
+    for (const id of ids) {
+      const r = recipeById[id];
+      if (!r) continue;
+      const fs = features(r);
+      for (const x of fs) {
+        w.set(x, (w.get(x) || 0) + sign * idf(x));
+        if (sign > 0) pos.add(x);
+      }
+      // Połączenia: pary najbardziej charakterystycznych cech dania.
+      const top = [...fs].sort((a, b) => idf(b) - idf(a)).slice(0, 6);
+      for (let i = 0; i < top.length; i++) for (let j = i + 1; j < top.length; j++) {
+        const key = [top[i], top[j]].sort().join('|');
+        pairs.set(key, (pairs.get(key) || 0) + sign * (idf(top[i]) + idf(top[j])) / 2);
+      }
+    }
+  };
+  add(likedIds, 1);
+  add(dislikedIds, -1);
+  const pairList = [...pairs].filter(([, v]) => Math.abs(v) > 0.5).map(([k, v]) => [...k.split('|'), v]);
+  return { w, pairs, pairList, pos, likedSet: new Set(likedIds), liked: likedIds.length, disliked: new Set(dislikedIds), cache: new Map() };
+}
+
+// Dopasowanie dania do gustu (0 = obojętne, więcej = bardziej w Twoim stylu).
+export function affinity(r, p) {
+  if (!p || (!p.w.size && !p.pairs.size)) return 0;
+  if (p.cache?.has(r.id)) return p.cache.get(r.id);
+  const fs = features(r);
+  let a = 0;
+  for (const x of fs) a += p.w.get(x) || 0;
+  const set = new Set(fs);
+  for (const [x, y, v] of p.pairList) if (set.has(x) && set.has(y)) a += v;
+  a /= Math.sqrt(fs.length || 1);
+  p.cache?.set(r.id, a);
+  return a;
+}
+
+// Co profil mówi o guście, po ludzku: najmocniejsze cechy i połączenia.
+export function describeProfile(p) {
+  const label = (x) => {
+    const [t, v] = [x[0], x.slice(2)];
+    if (t === 'i') return INGREDIENTS[v]?.name.split(/[ (/]/)[0].toLowerCase();
+    return null;
+  };
+  const likes = [...p.w].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).map(([x]) => label(x)).filter(Boolean);
+  const combos = [...p.pairs].filter(([k, v]) => v > 0 && !k.includes('k:')).sort((a, b) => b[1] - a[1])
+    .map(([k]) => k.split('|').map(label)).filter(([a, b]) => a && b && a !== b).map(([a, b]) => `${a} + ${b}`);
+  // „Rzadziej” tylko dla cech, których nie ma w żadnym ulubionym daniu (ani jako produkt, ani jako słowo).
+  const inLiked = (x) => p.pos.has(x) || (x.startsWith('i:') && p.pos.has('w:' + norm(INGREDIENTS[x.slice(2)]?.name || '').slice(0, 5)));
+  const avoid = [...p.w].filter(([x, v]) => v < 0 && !inLiked(x)).sort((a, b) => a[1] - b[1]).map(([x]) => label(x)).filter(Boolean);
+  const uniq = (a) => [...new Set(a)].slice(0, 5);
+  return { likes: uniq(likes), combos: uniq(combos).slice(0, 3), avoid: uniq(avoid).slice(0, 3) };
+}
+
+// Losowanie ważone bez powtórzeń: dania podobne do ulubionych wypadają częściej.
+// Skumulowane wagi liczymy raz na pulę, potem każde losowanie to wyszukiwanie binarne.
+function weightedSampler(arr, weight) {
+  const cum = [];
+  let t = 0;
+  for (const x of arr) cum.push((t += weight(x)));
+  return (k, rng) => {
+    const out = new Set();
+    for (let guard = 0; out.size < Math.min(k, arr.length) && guard < k * 50; guard++) {
+      const r = rng() * t;
+      let lo = 0, hi = cum.length - 1;
+      while (lo < hi) { const mid = (lo + hi) >> 1; if (cum[mid] < r) lo = mid + 1; else hi = mid; }
+      out.add(arr[lo]);
+    }
+    return [...out];
+  };
+}
+
 function sample(arr, k, rng) {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -337,6 +441,29 @@ export function generatePlan(s, fridge = {}, rng = Math.random, tries = 2500) {
   const kb = s.breakfasts ? Math.min(dishCount('sniadanie', s.days, s.effort), breakfasts.length) : 0;
   const kk = s.suppers ? Math.min(dishCount('sniadanie', s.days, s.effort), suppers.length) : 0;
 
+  // Gust: wagi losowania z dopasowania do ulubionych, znormalizowane w każdej puli.
+  const prefs = s.prefs;
+  // Skala: 95. percentyl dopasowania w puli, żeby kilka „rekordowych” dań nie spłaszczało reszty.
+  const scaleOf = (pool) => {
+    const v = pool.map((r) => Math.abs(affinity(r, prefs))).sort((a, b) => a - b);
+    return Math.max(1e-6, v[Math.floor(v.length * 0.95)] || 0);
+  };
+  const scales = {};
+  const norm1 = (r, sc) => Math.max(-1, Math.min(1, affinity(r, prefs) / sc));
+  const weighter = (pool, key) => {
+    if (!prefs?.liked || !pool.length) return null;
+    const sc = (scales[key] = scaleOf(pool));
+    // Same ulubione dania dostają dodatkową szansę (rotacja 2 tygodni nadal obowiązuje).
+    return (r) => Math.exp(3 * norm1(r, sc)) * (prefs.likedSet.has(r.id) ? 6 : 1);
+  };
+  const wd = weighter(dinners, 'obiad'), wb = weighter(breakfasts, 'sniadanie'), wk = weighter(suppers, 'kolacja');
+  const samplers = new Map();
+  const pick = (pool, k, w) => {
+    if (!w) return sample(pool, k, rng);
+    if (!samplers.has(pool)) samplers.set(pool, weightedSampler(pool, w));
+    return samplers.get(pool)(k, rng);
+  };
+
   const seen = new Set();
   const results = [];
   // Druga runda bez zasady urozmaicenia, gdy przy ostrych filtrach zostało za mało różnych dań.
@@ -347,11 +474,11 @@ export function generatePlan(s, fridge = {}, rng = Math.random, tries = 2500) {
       strict = false;
       seen.clear();
     }
-    const d = sample(dinners, kd, rng).map((r) => r.id).sort();
-    const b = sample(breakfasts, kb, rng).map((r) => r.id).sort();
+    const d = pick(dinners, kd, wd).map((r) => r.id).sort();
+    const b = pick(breakfasts, kb, wb).map((r) => r.id).sort();
     // Kolacje inne niż śniadania; przy bardzo małej puli mogą się powtórzyć.
     const other = suppers.filter((r) => !b.includes(r.id));
-    const k = sample(other.length >= kk ? other : suppers, kk, rng).map((r) => r.id).sort();
+    const k = pick(other.length >= kk ? other : suppers, kk, wk).map((r) => r.id).sort();
     const key = d.join(',') + '|' + b.join(',') + '|' + k.join(',');
     if (seen.has(key)) continue;
     seen.add(key);
@@ -374,22 +501,28 @@ export function generatePlan(s, fridge = {}, rng = Math.random, tries = 2500) {
       const dev = Array.from({ length: s.days }, (_, i) => Math.abs(goal - dayNutrition(meals, i).kcal)).reduce((a, x) => a + x, 0) / s.days;
       score += (dev / goal) * s.budget * 3;
     }
+    if (prefs?.liked) {
+      // Bonus za dopasowanie do gustu, w złotówkach względem budżetu.
+      const parts = [[d, scales.obiad], [b, scales.sniadanie], [k, scales.kolacja]].filter(([ids, sc]) => ids.length && sc);
+      const fit = parts.reduce((a, [ids, sc]) => a + ids.reduce((x, id) => x + norm1(recipeById[id], sc), 0) / ids.length, 0) / (parts.length || 1);
+      score -= fit * s.budget * 0.4;
+    }
     results.push({ meals, cost, score });
   }
 
   if (!results.length) return { error: 'Za mało przepisów przy tych ustawieniach. Poluzuj filtry: czas w kuchni, źródło przepisów, „Bez glutenu” albo listę „Czego nie jesz”.' };
   results.sort((a, b) => a.score - b.score);
   const within = results.filter((r) => r.cost <= s.budget);
-  let pick;
+  let chosen;
   if (within.length) {
     // Losowo spośród mieszczących się w budżecie, z lekką preferencją tańszych.
     const pool = within.slice(0, Math.max(1, Math.min(15, Math.ceil(within.length * 0.1))));
-    pick = pool[Math.floor(rng() * pool.length)];
+    chosen = pool[Math.floor(rng() * pool.length)];
   } else {
     // Nic nie mieści się w budżecie: najlepszy wynik (koszt + trzymanie kalorii), a nie sam najtańszy.
-    pick = results[0];
+    chosen = results[0];
   }
-  return { meals: pick.meals, cost: pick.cost, overBudget: pick.cost > s.budget };
+  return { meals: chosen.meals, cost: chosen.cost, overBudget: chosen.cost > s.budget };
 }
 
 // Propozycje zamiany jednego dania, posortowane od najtańszego planu.

@@ -1,6 +1,6 @@
 import { INGREDIENTS, CATEGORIES, TAG_LABELS } from './data.js';
 import {
-  ALL_RECIPES, siteOf, SITES, taste, TASTE_LABELS, priceTier, PRICE_LABELS, PRICE_LIMITS, EFFORT, norm, buyId, isQuickHealthy, healthInfo, ingCount, fitsEquipment, avoidStems, containsAvoided, recipeTime, recipeById, scaled, nutrition, dayNutrition, generatePlan, mealShares, shoppingList, swapOptions, costPerPortion, cookDays,
+  ALL_RECIPES, siteOf, SITES, buildProfile, describeProfile, affinity, taste, TASTE_LABELS, priceTier, PRICE_LABELS, PRICE_LIMITS, EFFORT, norm, buyId, isQuickHealthy, healthInfo, ingCount, fitsEquipment, avoidStems, containsAvoided, recipeTime, recipeById, scaled, nutrition, dayNutrition, generatePlan, mealShares, shoppingList, swapOptions, costPerPortion, cookDays,
   fmtQty, fmtZl, round2,
 } from './planner.js';
 
@@ -26,6 +26,9 @@ function load() {
     // żeby odznaczenie mogło to cofnąć.
     // Plany z poprzednich tygodni: { start, ids, names } — żeby nowy plan nie powtarzał dań.
     history: saved.history || [],
+    // Oceny dań: ♥ (lubię) i 👎 (nie dla mnie), z datą. Z nich powstaje profil gustu.
+    likes: saved.likes || {},
+    dislikes: saved.dislikes || {},
     bought: saved.bought || {},
     consumed: saved.consumed || {},
     recipeFilter: 'obiad',
@@ -212,6 +215,7 @@ function dishCard(m, i) {
         ${tags.length ? `<div class="row" style="margin-top:6px">${tags.join('')}</div>` : ''}
         <div class="row">
           <button class="btn small" data-action="swap" data-i="${i}">Zamień</button>
+          ${rateButtons(r)}
           ${r.source ? aniaBtn(r, 'btn small ghost') : `<button class="btn small ghost" data-action="recipe" data-id="${r.id}">Przepis</button>`}
           ${r.source ? `<button class="btn small ghost" data-action="recipe" data-id="${r.id}">Składniki</button>` : ''}
         </div>
@@ -311,6 +315,7 @@ function renderForm() {
         <label class="switch"><span>Bez glutenu</span><input type="checkbox" name="glutenFree" ${s.glutenFree ? 'checked' : ''}></label>
         <p class="muted small" style="margin:4px 0 0">Plan zawsze ma śniadanie, obiad i kolację.</p>
       </div>
+      ${tasteNote()}
       ${historyNote()}
       <button class="btn primary block" type="submit">Ułóż plan</button>
       ${state.plan ? '<button class="btn ghost block" type="button" data-action="cancel-edit" style="margin-top:8px">Anuluj</button>' : ''}
@@ -324,6 +329,18 @@ function addAvoid(text) {
   if (!t) return;
   const list = state.settings.avoid || [];
   if (!list.includes(t)) state.settings.avoid = [...list, t];
+}
+
+function tasteNote() {
+  const nl = Object.keys(state.likes).length, nd = Object.keys(state.dislikes).length;
+  if (!nl && !nd) return '<p class="muted small">Oznaczaj dania jako ♡ Lubię albo 👎. Kolejne plany nauczą się, co Ci smakuje.</p>';
+  const d = describeProfile(tasteProfile());
+  const parts = [];
+  if (d.likes.length) parts.push(`lubisz: ${d.likes.join(', ')}`);
+  if (d.combos.length) parts.push(`połączenia: ${d.combos.join(', ')}`);
+  if (d.avoid.length) parts.push(`rzadziej: ${d.avoid.join(', ')}`);
+  return `<div class="card soft small" style="margin:0 0 12px"><strong>Twój gust</strong> (${nl} ♥, ${nd} 👎)<br>${parts.join(' · ') || 'za mało ocen, żeby coś wywnioskować'}
+    <div style="margin-top:6px"><a href="#przepisy" data-action="show-favs">Zobacz ulubione</a> · <button type="button" class="btn small ghost" data-action="clear-taste">Zapomnij oceny</button></div></div>`;
 }
 
 function historyNote() {
@@ -346,6 +363,20 @@ function readForm() {
   state.settings.oven = f.oven.checked;
   state.settings.airfryer = f.airfryer.checked;
   addAvoid(f.querySelector('#avoid-q')?.value);
+}
+
+// Profil gustu z ocen (liczony na nowo przy każdym planie, bo oceny się zmieniają).
+function tasteProfile() {
+  const liked = Object.keys(state.likes).filter((id) => recipeById[id]);
+  const disliked = Object.keys(state.dislikes).filter((id) => recipeById[id]);
+  return liked.length || disliked.length ? buildProfile(liked, disliked) : null;
+}
+
+function rateButtons(r, small = true) {
+  const liked = !!state.likes[r.id], disliked = !!state.dislikes[r.id];
+  const cls = small ? 'btn small ghost rate' : 'btn rate';
+  return `<button class="${cls} ${liked ? 'on' : ''}" data-action="like" data-id="${r.id}" aria-pressed="${liked}" aria-label="Lubię: ${r.name}">${liked ? '♥' : '♡'} Lubię</button>
+    <button class="${cls} ${disliked ? 'on-no' : ''}" data-action="dislike" data-id="${r.id}" aria-pressed="${disliked}" aria-label="Nie dla mnie: ${r.name}">👎${small ? '' : ' Nie dla mnie'}</button>`;
 }
 
 // Ile dni wstecz pamiętamy zjedzone dania.
@@ -372,8 +403,9 @@ function makePlan() {
   // Plan z wcześniejszego dnia był już w użyciu, więc trafia do historii.
   // „Wylosuj inne dania” tego samego dnia tylko go zastępuje.
   if (state.plan && state.plan.start < todayStart()) archivePlan();
-  const s = { ...state.settings, excluded: recentDishes() };
-  const res = generatePlan(s, state.fridge);
+  const s = { ...state.settings, excluded: [...recentDishes(), ...Object.keys(state.dislikes)] };
+  const prefs = tasteProfile();
+  const res = generatePlan({ ...s, prefs }, state.fridge);
   if (res.error) return toast(res.error);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -594,7 +626,7 @@ function renderRecipes() {
     <div class="chips" style="margin-bottom:8px">${chip('rsource', src, 'all', 'Wszystkie')}${chip('rsource', src, 'ania', 'Ania Gotuje')}${chip('rsource', src, 'lidl', 'Kuchnia Lidla')}${chip('rsource', src, 'ks', 'Kwestia Smaku')}${chip('rsource', src, 'respo', 'Respo')}${chip('rsource', src, 'own', 'Wbudowane')}</div>
     <div class="chips" style="margin-bottom:8px">${priceChips('rprice', state.recipePrice)}</div>
     ${f === 'sniadanie' ? `<div class="chips" style="margin-bottom:8px">${tasteChips('rtaste', state.recipeTaste)}</div>` : ''}
-    <div class="chips" style="margin-bottom:14px">${chip('rfilter', f, 'obiad', 'Obiady')}${chip('rfilter', f, 'sniadanie', 'Śniadania')}${chip('rfilter', f, 'wege', 'Wege')}${chip('rfilter', f, 'wegan', 'Wegańskie')}${chip('rfilter', f, 'bezgl', 'Bez glutenu')}</div>
+    <div class="chips" style="margin-bottom:14px">${chip('rfilter', f, 'obiad', 'Obiady')}${chip('rfilter', f, 'sniadanie', 'Śniadania')}${chip('rfilter', f, 'wege', 'Wege')}${chip('rfilter', f, 'wegan', 'Wegańskie')}${chip('rfilter', f, 'bezgl', 'Bez glutenu')}${chip('rfilter', f, 'fav', '♥ Ulubione')}</div>
     <div id="recipe-list">${recipeList()}</div>`;
 }
 
@@ -605,7 +637,7 @@ function recipeList() {
   const q = norm(state.recipeQuery.trim());
   const stems = avoidStems(state.settings.avoid);
   const pr = state.recipePrice || 'any';
-  const all = ALL_RECIPES.filter((r) => (r.type === f || r.tags.includes(f)) && (src === 'all' || siteOf(r) === src) && (pr === 'any' || priceTier(r, state.settings) === pr) && (f !== 'sniadanie' || !state.recipeTaste || state.recipeTaste === 'any' || taste(r) === state.recipeTaste));
+  const all = ALL_RECIPES.filter((r) => (f === 'fav' ? state.likes[r.id] : r.type === f || r.tags.includes(f)) && (src === 'all' || siteOf(r) === src) && (pr === 'any' || priceTier(r, state.settings) === pr) && (f !== 'sniadanie' || !state.recipeTaste || state.recipeTaste === 'any' || taste(r) === state.recipeTaste));
   const base = all.filter((r) => !containsAvoided(r, stems) && fitsEquipment(r, state.settings));
   const hidden = all.length - base.length;
   // Najpierw trafienia w nazwie dania, potem dania z takim składnikiem.
@@ -619,7 +651,7 @@ function recipeList() {
     ${shown.map((r) => `
       <button class="option" data-action="recipe" data-id="${r.id}">
         <span class="emoji">${r.emoji}</span>
-        <span><strong>${r.name}</strong><br><span class="muted small">ok. ${fmtZl(costPerPortion(r, state.settings))}/porcja ${pricePill(r, state.settings)} ${tastePill(r)} · ${kcalTxt(nutrition(r))} · ${minTxt(recipeTime(r))}${siteTag(r)}</span></span>
+        <span><strong>${state.likes[r.id] ? '♥ ' : ''}${r.name}</strong><br><span class="muted small">ok. ${fmtZl(costPerPortion(r, state.settings))}/porcja ${pricePill(r, state.settings)} ${tastePill(r)} · ${kcalTxt(nutrition(r))} · ${minTxt(recipeTime(r))}${siteTag(r)}</span></span>
         <span></span>
       </button>`).join('')}
     ${list.length > shown.length ? `<button class="btn block" data-action="more">Pokaż więcej (${list.length - shown.length})</button>` : ''}`;
@@ -659,6 +691,7 @@ function renderQuick() {
           <div class="row">
             ${r.source ? aniaBtn(r, 'btn small') : `<button class="btn small" data-action="recipe" data-id="${r.id}">Przepis</button>`}
             ${r.source ? `<button class="btn small ghost" data-action="recipe" data-id="${r.id}">Składniki</button>` : ''}
+            ${rateButtons(r)}
           </div>
         </div>
       </article>`).join('')}
@@ -670,6 +703,7 @@ function renderQuick() {
 function recipeBody(r) {
   const n = nutrition(r);
   return `
+    <div class="row" style="margin-bottom:10px">${rateButtons(r, false)}</div>
     ${r.source ? `<p>${aniaBtn(r, 'btn primary')}</p>` : ''}
     ${r.desc ? `<p>${r.desc}</p>` : ''}
     <div class="row" style="margin-bottom:10px">
@@ -832,6 +866,21 @@ document.addEventListener('click', async (e) => {
     case 'taste': readForm(); s[el.dataset.k] = el.dataset.v; break;
     case 'qtaste': state.quickTaste = el.dataset.v; state.quickLimit = 30; break;
     case 'rtaste': state.recipeTaste = el.dataset.v; state.recipeLimit = 40; break;
+    case 'like': case 'dislike': {
+      const id = el.dataset.id;
+      const [mine, other] = a === 'like' ? [state.likes, state.dislikes] : [state.dislikes, state.likes];
+      if (mine[id]) delete mine[id];
+      else {
+        mine[id] = Date.now();
+        delete other[id];
+        toast(a === 'like' ? 'Dodano do ulubionych. Kolejne plany częściej podpowiedzą podobne dania.' : 'To danie nie wróci w planach, a podobne będą rzadsze.');
+      }
+      save();
+      if (sheet.open) openRecipe(id);
+      break;
+    }
+    case 'show-favs': state.recipeFilter = 'fav'; state.recipeLimit = 40; location.hash = '#przepisy'; return;
+    case 'clear-taste': readForm(); state.likes = {}; state.dislikes = {}; toast('Oceny zapomniane'); break;
     case 'clear-history': readForm(); state.history = []; toast('Historia wyczyszczona'); break;
     case 'rprice': state.recipePrice = el.dataset.v; state.recipeLimit = 40; break;
     case 'qprice': state.quickPrice = el.dataset.v; state.quickLimit = 30; break;

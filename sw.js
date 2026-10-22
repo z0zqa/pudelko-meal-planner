@@ -1,9 +1,11 @@
 // Prosty cache offline: najpierw sieć, a gdy jej brak, wersja z pamięci.
-const CACHE = 'pudelko-v23';
-const FILES = ['./', 'index.html', 'styles.css', 'js/app.js', 'js/planner.js', 'js/data.js', 'js/recipes-ania.js', 'js/recipes-lidl.js', 'js/recipes-ks.js', 'js/recipes-respo.js', 'manifest.webmanifest', 'icon.svg'];
+const CACHE = 'pudelko-v24';
+const FILES = ['./', 'index.html', 'styles.css', 'js/app.js', 'js/planner.js', 'js/data.js', 'manifest.webmanifest', 'icon.svg'];
+// Paczki przepisów mogą nie istnieć, więc ich brak nie psuje instalacji.
+const PACKS = ['ania', 'lidl', 'ks', 'respo'].map((s) => `js/recipes-${s}.js`);
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)));
+  e.waitUntil(caches.open(CACHE).then((c) => Promise.all([c.addAll(FILES), ...PACKS.map((f) => c.add(f).catch(() => {}))])));
   self.skipWaiting();
 });
 

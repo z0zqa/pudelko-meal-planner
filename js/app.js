@@ -1,6 +1,6 @@
 import { INGREDIENTS, CATEGORIES, TAG_LABELS } from './data.js';
 import {
-  ALL_RECIPES, siteOf, SITES, buildProfile, describeProfile, affinity, taste, TASTE_LABELS, priceTier, PRICE_LABELS, PRICE_LIMITS, EFFORT, norm, buyId, isQuickHealthy, healthInfo, ingCount, fitsEquipment, avoidStems, containsAvoided, recipeTime, recipeById, scaled, nutrition, dayNutrition, generatePlan, mealShares, shoppingList, swapOptions, costPerPortion, cookDays,
+  ALL_RECIPES, siteOf, SITES, LOADED_SITES, buildProfile, describeProfile, affinity, taste, TASTE_LABELS, priceTier, PRICE_LABELS, PRICE_LIMITS, EFFORT, norm, buyId, isQuickHealthy, healthInfo, ingCount, fitsEquipment, avoidStems, containsAvoided, recipeTime, recipeById, scaled, nutrition, dayNutrition, generatePlan, mealShares, shoppingList, swapOptions, costPerPortion, cookDays,
   fmtQty, fmtZl, round2,
 } from './planner.js';
 
@@ -17,7 +17,8 @@ function load() {
   return {
     // Ustawienia sprzed dodania kolacji: włączamy śniadania i kolacje, żeby plan dawał pełne 1500 kcal.
     // Stałe ustawienia: 1500 kcal i zawsze trzy posiłki (śniadanie, obiad, kolacja).
-    settings: { ...DEFAULT_SETTINGS, ...saved.settings, kcal: KCAL, breakfasts: true, suppers: true },
+    // Źródło, którego paczki nie ma (np. w wersji bez prywatnych przepisów), wraca do „Wszystkie”.
+    settings: { ...DEFAULT_SETTINGS, ...saved.settings, kcal: KCAL, breakfasts: true, suppers: true, ...(saved.settings?.source in SITES && !LOADED_SITES.includes(saved.settings.source) ? { source: 'all' } : {}) },
     plan: saved.plan || null,
     fridge: saved.fridge || {},
     checked: saved.checked || {},
@@ -217,7 +218,7 @@ function dishCard(m, i) {
         <div class="row">
           <button class="btn small" data-action="swap" data-i="${i}">Zamień</button>
           ${rateButtons(r)}
-          ${r.source ? aniaBtn(r, 'btn small ghost') : `<button class="btn small ghost" data-action="recipe" data-id="${r.id}">Przepis</button>`}
+          ${r.source ? sourceBtn(r, 'btn small ghost') : `<button class="btn small ghost" data-action="recipe" data-id="${r.id}">Przepis</button>`}
           ${r.source ? `<button class="btn small ghost" data-action="recipe" data-id="${r.id}">Składniki</button>` : ''}
         </div>
       </div>
@@ -308,10 +309,10 @@ function renderForm() {
         <div class="chips">${priceChip('any', 'Wszystkie')}${priceChip('tanie', 'Tanie')}${priceChip('srednie', 'Średnie')}${priceChip('drogie', 'Drogie')}</div>
         <p class="muted small" style="margin:6px 0 0">Cena porcji: obiad tani do ${PRICE_LIMITS.obiad[0]} zł, średni do ${PRICE_LIMITS.obiad[1]} zł; śniadanie i kolacja tanie do ${PRICE_LIMITS.sniadanie[0]} zł, średnie do ${PRICE_LIMITS.sniadanie[1]} zł.</p>
       </div>
-      <div class="field">
+      ${LOADED_SITES.length ? `<div class="field">
         <div class="label">Skąd przepisy?</div>
-        <div class="chips">${srcChip('all', 'Wszystkie')}${srcChip('ania', 'Ania Gotuje')}${srcChip('lidl', 'Kuchnia Lidla')}${srcChip('ks', 'Kwestia Smaku')}${srcChip('respo', 'Respo')}${srcChip('own', 'Wbudowane')}</div>
-      </div>
+        <div class="chips">${srcChip('all', 'Wszystkie')}${LOADED_SITES.map((k) => srcChip(k, SITES[k].label)).join('')}${srcChip('own', 'Wbudowane')}</div>
+      </div>` : ''}
       <div class="field">
         <label class="switch"><span>Bez glutenu</span><input type="checkbox" name="glutenFree" ${s.glutenFree ? 'checked' : ''}></label>
         <p class="muted small" style="margin:4px 0 0">Plan zawsze ma śniadanie, obiad i kolację.</p>
@@ -508,7 +509,7 @@ function renderCooking() {
 
 const totalTime = (m) => recipeTime(recipeById[m.recipeId]);
 const kcalTxt = (n) => `${n.kcal.toLocaleString('pl-PL')} kcal`;
-const aniaBtn = (r, cls = 'btn small') => `<a class="${cls}" href="${r.source}" target="_blank" rel="noopener">${SITES[siteOf(r)].link} ↗</a>`;
+const sourceBtn = (r, cls = 'btn small') => `<a class="${cls}" href="${r.source}" target="_blank" rel="noopener">${SITES[siteOf(r)].link} ↗</a>`;
 const siteTag = (r) => (r.source ? ` · ${SITES[siteOf(r)].label}` : '');
 
 function cookCard({ m, b, bi }) {
@@ -529,7 +530,7 @@ function cookCard({ m, b, bi }) {
         </div>
       </div>
       <ul class="ing-list">${Object.entries(r.ing).map(([id, q]) => `<li>${INGREDIENTS[buyId(id, state.plan.settings)].name}${INGREDIENTS[id].unit === 'szczypta' ? '' : ` — ${fmtQty(scaled(id, q, f), INGREDIENTS[id].unit)}`}</li>`).join('')}</ul>
-      <div class="row" style="margin-top:10px">${r.source ? aniaBtn(r) : ''}
+      <div class="row" style="margin-top:10px">${r.source ? sourceBtn(r) : ''}
         <label class="row small" style="gap:6px"><input type="checkbox" data-action="cooked" data-k="${key}" data-m="${state.plan.meals.indexOf(m)}" data-b="${bi}" ${cooked ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--ok)"> Ugotowane (zdejmij składniki z lodówki)</label></div>
       <ol class="steps">${steps.map(([txt, min], i) => {
         const done = state.done[`${key}:${i}`];
@@ -634,7 +635,7 @@ function renderRecipes() {
   return `
     <h1>Przepisy</h1>
     <input class="input" type="search" id="recipe-search" placeholder="Szukaj: gulasz, kurczak, naleśniki…" value="${state.recipeQuery.replace(/"/g, '&quot;')}" aria-label="Szukaj przepisu" style="margin-bottom:10px">
-    <div class="chips" style="margin-bottom:8px">${chip('rsource', src, 'all', 'Wszystkie')}${chip('rsource', src, 'ania', 'Ania Gotuje')}${chip('rsource', src, 'lidl', 'Kuchnia Lidla')}${chip('rsource', src, 'ks', 'Kwestia Smaku')}${chip('rsource', src, 'respo', 'Respo')}${chip('rsource', src, 'own', 'Wbudowane')}</div>
+    ${LOADED_SITES.length ? `<div class="chips" style="margin-bottom:8px">${chip('rsource', src, 'all', 'Wszystkie')}${LOADED_SITES.map((k) => chip('rsource', src, k, SITES[k].label)).join('')}${chip('rsource', src, 'own', 'Wbudowane')}</div>` : ''}
     <div class="chips" style="margin-bottom:8px">${priceChips('rprice', state.recipePrice)}</div>
     ${f === 'sniadanie' ? `<div class="chips" style="margin-bottom:8px">${tasteChips('rtaste', state.recipeTaste)}</div>` : ''}
     <div class="chips" style="margin-bottom:14px">${chip('rfilter', f, 'obiad', 'Obiady')}${chip('rfilter', f, 'sniadanie', 'Śniadania')}${chip('rfilter', f, 'wege', 'Wege')}${chip('rfilter', f, 'wegan', 'Wegańskie')}${chip('rfilter', f, 'bezgl', 'Bez glutenu')}${chip('rfilter', f, 'fav', '♥ Ulubione')}</div>
@@ -700,7 +701,7 @@ function renderQuick() {
           <div class="meta">${minTxt(recipeTime(r))} · ${ingCount(r)} ${plural(ingCount(r), 'produkt', 'produkty', 'produktów')} · ${h.protein} g białka · ${h.kcal} kcal · ok. ${fmtZl(costPerPortion(r, s))} ${pricePill(r, s)} ${tastePill(r)}${siteTag(r)}</div>
           ${equipmentPill(r, s) ? `<div class="row" style="margin-top:6px">${equipmentPill(r, s)}</div>` : ''}
           <div class="row">
-            ${r.source ? aniaBtn(r, 'btn small') : `<button class="btn small" data-action="recipe" data-id="${r.id}">Przepis</button>`}
+            ${r.source ? sourceBtn(r, 'btn small') : `<button class="btn small" data-action="recipe" data-id="${r.id}">Przepis</button>`}
             ${r.source ? `<button class="btn small ghost" data-action="recipe" data-id="${r.id}">Składniki</button>` : ''}
             ${rateButtons(r)}
           </div>
@@ -715,7 +716,7 @@ function recipeBody(r) {
   const n = nutrition(r);
   return `
     <div class="row" style="margin-bottom:10px">${rateButtons(r, false)}</div>
-    ${r.source ? `<p>${aniaBtn(r, 'btn primary')}</p>` : ''}
+    ${r.source ? `<p>${sourceBtn(r, 'btn primary')}</p>` : ''}
     ${r.desc ? `<p>${r.desc}</p>` : ''}
     <div class="row" style="margin-bottom:10px">
       <span class="pill accent">${kcalTxt(n)} · ${n.protein} g białka / porcja</span>

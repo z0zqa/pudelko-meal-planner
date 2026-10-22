@@ -1,13 +1,16 @@
 import { INGREDIENTS, RECIPES, LACTOSE_FREE } from './data.js';
-import { ANIA_RECIPES } from './recipes-ania.js';
-import { LIDL_RECIPES } from './recipes-lidl.js';
-import { KS_RECIPES } from './recipes-ks.js';
-import { RESPO_RECIPES } from './recipes-respo.js';
+// Paczki przepisów z innych serwisów są opcjonalne: buduje je lokalnie tools/build-recipes.mjs,
+// a gdy pliku nie ma, aplikacja działa na samych wbudowanych przepisach.
+// <packs>
+const packs = await Promise.all(['ania', 'lidl', 'ks', 'respo'].map((s) => import(`./recipes-${s}.js`).then((m) => Object.values(m).flat(), () => [])));
+// </packs>
 
-export const ALL_RECIPES = [...RECIPES, ...ANIA_RECIPES, ...LIDL_RECIPES, ...KS_RECIPES, ...RESPO_RECIPES];
+export const ALL_RECIPES = [...RECIPES, ...packs.flat()];
 // Źródło przepisu: 'own' (wbudowane), 'ania', 'lidl', 'ks', 'respo'.
 export const siteOf = (r) => r.site || (r.source ? 'ania' : 'own');
 export const SITES = { ania: { label: 'Ania Gotuje', link: 'Przepis u Ani' }, lidl: { label: 'Kuchnia Lidla', link: 'Przepis w Kuchni Lidla' }, ks: { label: 'Kwestia Smaku', link: 'Przepis w Kwestii Smaku' }, respo: { label: 'Centrum Respo', link: 'Przepis w Respo' } };
+// Serwisy, z których są wczytane przepisy (do filtrów).
+export const LOADED_SITES = Object.keys(SITES).filter((k) => ALL_RECIPES.some((r) => siteOf(r) === k));
 export const recipeById = Object.fromEntries(ALL_RECIPES.map((r) => [r.id, r]));
 
 export function round2(x) {
@@ -555,7 +558,7 @@ export function grams(id, q) {
   return q * (I.gPerSzt || 100);
 }
 
-// Kalorie i białko na porcję. Przepisy Ani mają wartości z jej strony, pozostałe liczymy ze składników.
+// Kalorie i białko na porcję. Przepisy z paczek mogą mieć własne wartości (nutr), pozostałe liczymy ze składników.
 const nutrCache = new Map();
 export function nutrition(r) {
   if (r.nutr) return r.nutr;

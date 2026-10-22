@@ -68,7 +68,7 @@ export const INGREDIENTS = {
   warzywaMroz: { name: 'Mieszanka warzyw stir-fry', unit: 'g', pack: 450, price: 5.49, cat: 'mrozonki', kcal: 40, protein: 2 },
   szpinak: { name: 'Szpinak mrożony', unit: 'g', pack: 450, price: 4.99, cat: 'mrozonki', kcal: 23, protein: 3 },
 
-  // ── Produkty dodane dla przepisów z aniagotuje.pl ──
+  // ── Produkty dodane dla przepisów z paczek ──
   // gPerSzt: ile waży sztuka (do przeliczania gramów na sztuki); gPerCup: gramy w szklance 250 ml.
   pomidor: { name: 'Pomidory świeże', unit: 'g', pack: 1000, price: 8.99, cat: 'warzywa', gPerSzt: 150, kcal: 18, protein: 1 },
   por: { name: 'Por', unit: 'szt', pack: 1, price: 2.99, cat: 'warzywa', gPerSzt: 250, kcal: 31, protein: 2 },

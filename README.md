@@ -1,61 +1,90 @@
 # Pudełko 🥡
 
-Prywatny planer posiłków na budżet, podobny do [prepka.pl](https://prepka.pl). Wpisujesz budżet i liczbę dni, a aplikacja układa jadłospis, listę zakupów i plan gotowania.
+**Plan posiłków na budżet: lista zakupów, kalorie i gotowanie w jednym miejscu.**
 
-- **Plan**: każdego dnia śniadanie, obiad i kolacja, razem ok. **1500 kcal**. Porcje są dopasowywane do kalorii. Każde danie można wylosować od nowa albo zamienić, a koszt zakupów przelicza się od razu.
-- **Preferencje**: lista składników do unikania (domyślnie papryka), mleko bez laktozy lub roślinne, tryb „jak najmniej przy garach” (krótki czas, bez kotletów i panierowania), air fryer zamiast piekarnika, cena dania (tanie / średnie / drogie), śniadania i kolacje na słodko lub na słono, wybór źródła przepisów.
-- **Rotacja**: dania z ostatnich 2 tygodni nie wracają, a kolejne losowania tego samego dnia dają naprawdę inne dania.
-- **Ulubione**: 👍 i 👎 przy daniach. Aplikacja uczy się, jakie składniki i połączenia smakowe lubisz, i częściej je proponuje. Odrzucone dania już się nie pojawiają.
-- **Zakupy**: lista w **całych opakowaniach**, z cenami, po działach sklepu. Odhaczone produkty trafiają do lodówki.
-- **Gotowanie**: rozpisany meal prep: co gotujesz pierwszego dnia, co w trakcie tygodnia, co mrozisz.
-- **Szybkie**: ultra proste i zdrowe przepisy, także śniadania bez gotowania.
-- **Lodówka**: wpisujesz, co masz. Nowy plan to wykorzysta, a ugotowane dania zdejmują produkty z lodówki.
-- **Przepisy**: kilka tysięcy dań z czterech serwisów, z filtrami (źródło, cena, słodkie/słone, ulubione).
+Wpisujesz, ile chcesz wydać i na ile dni. Pudełko układa śniadania, obiady i kolacje, liczy zakupy w całych opakowaniach i rozpisuje, co ugotować kiedy. Działa w przeglądarce, bez konta i bez serwera, także offline.
 
-Bez konta, dane zostają w przeglądarce (localStorage). Działa offline i można ją zainstalować na telefonie (PWA).
+<p align="center">
+  <img src="docs/plan-light.png" width="200" alt="Plan na 5 dni z kosztem zakupów i kaloriami">
+  <img src="docs/zakupy.png" width="200" alt="Lista zakupów w całych opakowaniach">
+  <img src="docs/szybkie.png" width="200" alt="Szybkie i zdrowe przepisy">
+  <img src="docs/plan-dark.png" width="200" alt="Plan w trybie ciemnym">
+</p>
+
+## Co potrafi
+
+- **Plan w budżecie.** Śniadanie, obiad i kolacja każdego dnia, razem ok. 1500 kcal. Porcje dopasowują się do kalorii, a każde danie można wylosować od nowa albo zamienić i od razu widać nowy koszt zakupów.
+- **Lista zakupów w całych opakowaniach.** Z cenami, po działach sklepu, z informacją, ile czego zostanie. Odhaczone produkty trafiają do lodówki, a listę można wysłać lub skopiować.
+- **Lodówka.** Wpisujesz, co masz, a nowy plan to wykorzysta. Ugotowane dania zdejmują produkty z lodówki.
+- **Gotowanie.** Rozpisany meal prep: co gotujesz pierwszego dnia, co w trakcie tygodnia (gdy danie nie wytrzyma w lodówce), co mrozisz.
+- **Preferencje.** Składniki do unikania (z odmianą i synonimami, np. „papryka” wyklucza też chili i ajwar), produkty bez laktozy, tryb „jak najmniej przy garach”, air fryer zamiast piekarnika, cena dania (tanie, średnie, drogie), śniadania i kolacje na słodko lub na słono, dieta wege, wegańska lub bez glutenu.
+- **Rotacja.** Dania z ostatnich dwóch tygodni nie wracają, a kolejne losowania tego samego dnia dają inne dania.
+- **Uczy się gustu.** 👍 i 👎 przy daniach. Pudełko zapamiętuje lubiane składniki i połączenia smakowe i częściej je proponuje. Odrzucone dania już się nie pojawiają.
+- **Szybkie i zdrowe.** Osobna zakładka z daniami do 25 minut i śniadaniami do 15 minut, z niewielką liczbą produktów, także bez gotowania.
+- **PWA.** Można ją zainstalować na telefonie. Wszystkie dane zostają w przeglądarce (localStorage).
 
 ## Uruchomienie
 
-Wystarczy dowolny serwer plików statycznych:
+Bez instalacji zależności i bez kroku budowania. Wystarczy dowolny serwer plików statycznych:
 
 ```sh
 python3 -m http.server 8000
 # otwórz http://localhost:8000
 ```
 
-Albo `node tools/build-single.mjs pudelko.html`, żeby złożyć całość w jeden plik.
+Całą aplikację można też złożyć w jeden plik HTML, np. żeby otworzyć ją na telefonie bez serwera:
 
-**Nie publikuj tej wersji** (np. przez GitHub Pages): zawiera dane z cudzych serwisów i jest wyłącznie na własny użytek.
+```sh
+node tools/build-single.mjs pudelko.html
+```
 
 ## Jak to działa
 
-- `js/data.js`: produkty (wielkość opakowania i orientacyjna cena) oraz własne przepisy (w tym dania z air fryera i śniadania bez gotowania).
-- `js/planner.js`: algorytm. Losuje kilka tysięcy kombinacji dań, dla każdej liczy koszt zakupów w całych opakowaniach (minus to, co masz w lodówce) i wybiera losowo spośród tańszych planów mieszczących się w budżecie. Dania, które dzielą składniki, wychodzą więc taniej. Plany wymagające dodatkowego gotowania w tygodniu albo odbiegające od 1500 kcal dostają karę w rankingu, a dania pasujące do Twojego gustu premię.
-- `js/app.js`: interfejs (czysty JavaScript, bez frameworka i bez kroku budowania).
+| Plik | Co robi |
+| --- | --- |
+| `js/data.js` | Cennik produktów (wielkość opakowania, cena, kalorie, białko) i wbudowane przepisy. |
+| `js/planner.js` | Algorytm planu, lista zakupów, wartości odżywcze, filtry i nauka gustu. |
+| `js/app.js` | Interfejs: czysty JavaScript, bez frameworka. |
+| `sw.js` | Cache offline. |
+| `tools/build-single.mjs` | Składa całość w jeden plik HTML. |
 
-Ceny są orientacyjne. Żeby je zaktualizować, zmień pole `price` w `js/data.js`.
+**Plan.** Planer losuje kilka tysięcy kombinacji dań pasujących do filtrów. Dla każdej liczy koszt zakupów w całych opakowaniach, odejmując to, co jest w lodówce, więc dania dzielące składniki wychodzą taniej. Do kosztu dolicza karę za dodatkowe gotowanie w tygodniu i za odchylenie od 1500 kcal, a premię za dania w Twoim guście. Ostateczny plan jest losowany spośród najlepszych planów mieszczących się w budżecie, żeby kolejne losowania się różniły.
 
-## Przepisy z aniagotuje.pl (prywatnie)
+**Gust.** Każde danie jest opisane cechami: produkty, rdzenie słów ze składników i nazwy, rodzaj dania. Z polubionych i odrzuconych dań powstaje profil ważony rzadkością cech (IDF), uwzględniający też pary cech, czyli połączenia smakowe. Profil przesuwa prawdopodobieństwo wylosowania dania, ale nie zamyka na nowe.
 
-Aplikacja ma też ok. 720 przepisów z [aniagotuje.pl](https://aniagotuje.pl), **wyłącznie na własny użytek**. Repozytorium jest prywatne i tak powinno zostać: nie publikuj tej wersji (np. przez GitHub Pages), bo przepisy są własnością autorki.
+**Ceny** są orientacyjne. Żeby je zaktualizować, zmień pole `price` w `js/data.js`.
 
-- `tools/fetch_aniagotuje.py`: pobiera przepisy do `data/aniagotuje-raw.json` (wznawia przerwane pobieranie).
-- `tools/build-recipes.mjs ania`: zamienia je na `js/recipes-ania.js`. Składniki z tekstu („2 ząbki czosnku”, „pół szklanki mleka”) są przeliczane na produkty z cennika. Przepisy z nierozpoznanym składnikiem i same dodatki (surówki, frytki) są pomijane. `--report` pokazuje nierozpoznane składniki, `--debug="Nazwa"` rozbiór jednego przepisu.
+## Dodatkowe przepisy
 
-Ilości są przybliżone. Przy gotowaniu korzystaj z oryginału, do którego link jest przy każdym przepisie.
+Poza wbudowanymi przepisami Pudełko wczyta opcjonalne paczki `js/recipes-<źródło>.js`, jeśli istnieją. Bez nich aplikacja działa na samych wbudowanych przepisach. Paczka eksportuje tablicę przepisów w tym samym formacie co `RECIPES` w `js/data.js`. Może też podać `source` (link do oryginału, wtedy w aplikacji zamiast kroków pojawia się przycisk do niego), `site`, `totalTime` i `nutr` (kcal i białko na porcję):
 
-## Przepisy z kuchnialidla.pl (prywatnie)
+```js
+export const MY_RECIPES = [{
+  id: 'moje-orzo', name: 'Orzo z kurczakiem', type: 'obiad', emoji: '🍗', serves: 3, keeps: 3, freezes: false, tags: [],
+  ing: { piers: 400, makaron: 200, szpinak: 100 }, // id produktów z INGREDIENTS → gramy lub sztuki
+  source: 'https://…', site: 'moje', totalTime: 30,
+}];
+```
 
-Ok. 2500 dań z [kuchnialidla.pl](https://kuchnialidla.pl), na tych samych zasadach co przepisy Ani: w aplikacji są tylko nazwa, składniki z ilościami (do listy zakupów), wartości odżywcze i link do oryginału.
+<!-- prywatne -->
+## Prywatne źródła przepisów (nie publikować)
 
-- `tools/fetch_kuchnialidla.py`: pobiera dane do `data/kuchnialidla-raw.json`.
-- `node tools/build-recipes.mjs [ania|lidl]`: buduje `js/recipes-ania.js` i `js/recipes-lidl.js`.
-- `node tools/build-single.mjs plik.html`: składa całą aplikację w jeden plik do otwarcia na telefonie.
+To repozytorium zawiera też paczki zbudowane z serwisów z przepisami, **wyłącznie na własny użytek**: ok. 710 dań z [aniagotuje.pl](https://aniagotuje.pl), 2559 z [kuchnialidla.pl](https://kuchnialidla.pl), 891 z [kwestiasmaku.com](https://www.kwestiasmaku.com) i 1062 z [centrumrespo.pl](https://centrumrespo.pl). Zapisane są tylko nazwy, składniki z ilościami (do listy zakupów), wartości odżywcze, znaczniki sposobu przygotowania i linki. Treści przepisów nie ma, przy gotowaniu korzystasz z oryginału.
 
-Lidl nie oznacza diet, więc „wege” i „wegańskie” wyliczamy ze składników, a „bez glutenu” nie oznaczamy wcale.
+- `tools/fetch_*.py`: pobieranie do `data/*-raw.json`, z przerwami zgodnymi z robots.txt (wznawia przerwane pobieranie).
+- `node tools/build-recipes.mjs [ania|lidl|ks|respo]`: przelicza składniki z tekstu („2 ząbki czosnku”, „pół szklanki mleka”) na produkty z cennika i buduje `js/recipes-*.js`. Pomija przepisy z nierozpoznanym składnikiem i same dodatki. `--report` pokazuje nierozpoznane składniki, `--debug="Nazwa"` rozbiór jednego przepisu.
 
-## Kwestia Smaku i Centrum Respo (prywatnie)
+### Publikacja
 
-- `tools/fetch_kwestiasmaku.py`: wybrane kategorie (szybki obiad, lunche, śniadania bez chleba…), z 10 s przerwy między zapytaniami zgodnie z robots.txt. Kalorie liczone ze składników, czas szacowany z kroków.
-- `tools/fetch_respo.py`: dania główne z centrumrespo.pl, z kaloriami i białkiem na porcję ze strony.
-- Oba zapisują tylko nazwę, składniki, porcje, wartości odżywcze, znaczniki sposobu przygotowania i link. `node tools/build-recipes.mjs ks respo` buduje `js/recipes-ks.js` i `js/recipes-respo.js`.
+Tej wersji repozytorium **nie publikuj**: dane z serwisów są w plikach i w historii gita. Publiczną kopię składa:
+
+```sh
+sh tools/export-public.sh ../pudelko-public
+```
+
+Skrypt kopiuje pliki bez `data/`, `js/recipes-*.js`, skryptów pobierających i tej sekcji README, a potem zakłada nowe repozytorium bez historii. Zostaje dodać licencję, zrobić commit i wypchnąć kopię do nowego repozytorium na GitHubie.
+<!-- /prywatne -->
+
+## Licencja
+
+Do ustalenia.

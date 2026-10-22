@@ -1,7 +1,7 @@
-// Prosty cache offline: najpierw sieć, a gdy jej brak, wersja z pamięci.
+// Simple offline cache: network first, and the cached version when offline.
 const CACHE = 'pudelko-v24';
 const FILES = ['./', 'index.html', 'styles.css', 'js/app.js', 'js/planner.js', 'js/data.js', 'manifest.webmanifest', 'icon.svg'];
-// Paczki przepisów mogą nie istnieć, więc ich brak nie psuje instalacji.
+// Recipe packs may not exist, so their absence doesn't break installation.
 const PACKS = ['ania', 'lidl', 'ks', 'respo'].map((s) => `js/recipes-${s}.js`);
 
 self.addEventListener('install', (e) => {

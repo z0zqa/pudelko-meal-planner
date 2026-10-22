@@ -1,15 +1,15 @@
 import { INGREDIENTS, RECIPES, LACTOSE_FREE } from './data.js';
-// Paczki przepisów z innych serwisów są opcjonalne: buduje je lokalnie tools/build-recipes.mjs,
-// a gdy pliku nie ma, aplikacja działa na samych wbudowanych przepisach.
+// Recipe packs from other sites are optional: tools/build-recipes.mjs builds them locally,
+// and when the file is missing the app runs on the built-in recipes alone.
 // <packs>
 const packs = await Promise.all(['ania', 'lidl', 'ks', 'respo'].map((s) => import(`./recipes-${s}.js`).then((m) => Object.values(m).flat(), () => [])));
 // </packs>
 
 export const ALL_RECIPES = [...RECIPES, ...packs.flat()];
-// Źródło przepisu: 'own' (wbudowane), 'ania', 'lidl', 'ks', 'respo'.
+// Recipe source: 'own' (built-in), 'ania', 'lidl', 'ks', 'respo'.
 export const siteOf = (r) => r.site || (r.source ? 'ania' : 'own');
 export const SITES = { ania: { label: 'Ania Gotuje', link: 'Przepis u Ani' }, lidl: { label: 'Kuchnia Lidla', link: 'Przepis w Kuchni Lidla' }, ks: { label: 'Kwestia Smaku', link: 'Przepis w Kwestii Smaku' }, respo: { label: 'Centrum Respo', link: 'Przepis w Respo' } };
-// Serwisy, z których są wczytane przepisy (do filtrów).
+// Sites the loaded recipes come from (for filters).
 export const LOADED_SITES = Object.keys(SITES).filter((k) => ALL_RECIPES.some((r) => siteOf(r) === k));
 export const recipeById = Object.fromEntries(ALL_RECIPES.map((r) => [r.id, r]));
 
@@ -19,7 +19,7 @@ export function round2(x) {
 
 export const norm = (t) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ł/g, 'l');
 
-// Hasła, które pociągają za sobą inne nazwy tego samego produktu.
+// Keywords that pull in other names of the same product.
 const AVOID_ALIASES = {
   papryka: ['papryk', 'chili', 'chilli', 'jalapeno', 'pepperoni', 'harissa', 'ajwar', 'ajvar', 'sriracha', 'tabasco', 'piri', 'peri'],
   laktoza: ['mleko', 'mleka', 'smietan', 'jogurt', 'kefir', 'maslank', 'twarog'],
@@ -37,7 +37,7 @@ const stem = (w) => w.slice(0, Math.max(4, w.length - 2));
 export function avoidStems(terms = []) {
   return terms.flatMap((t) => {
     const n = norm(t.trim());
-    // Liczba mnoga i odmiana: „grzyb”, „grzybów”, „pieczarki” trafiają w tę samą grupę.
+    // Plurals and inflection: "grzyb", "grzybów", "pieczarki" hit the same group.
     const key = Object.keys(AVOID_ALIASES).find((k) => k === n || stem(k) === stem(n));
     return key ? AVOID_ALIASES[key] : [stem(n)];
   }).filter(Boolean);
@@ -48,7 +48,7 @@ export function containsAvoided(recipe, stems) {
   return stems.some((st) => words.some((w) => (st.length <= 3 ? w === st : w.startsWith(st))));
 }
 
-// Czas w kuchni: limit minut dla obiadu i śniadania.
+// Kitchen time: minute limit for lunch and breakfast.
 export const EFFORT = {
   min: { label: 'Minimum', obiad: 40, sniadanie: 15 },
   normal: { label: 'Normalnie', obiad: 75, sniadanie: 30 },
@@ -56,13 +56,13 @@ export const EFFORT = {
   ultra: { label: 'Ultra szybko i zdrowo', obiad: 25, sniadanie: 15 },
 };
 
-// ── Szybkie i zdrowe ──
-// Ultra proste: obiad do 25 min, śniadanie do 15, najwyżej 7 produktów do kupienia, mało kroków, bez smażenia w głębokim tłuszczu.
-// Zdrowe: rozsądne kalorie, sporo białka, warzywa (w śniadaniu też owoce), bez przetworzonego mięsa i słodzenia.
+// ── Quick & healthy ──
+// Ultra simple: lunch up to 25 min, breakfast up to 15, at most 7 products to buy, few steps, no deep frying.
+// Healthy: sensible calories, plenty of protein, vegetables (fruit too at breakfast), no processed meat or added sugar.
 const PROCESSED = ['boczek', 'kielbasa', 'parowki', 'majonez', 'ciastoFrancuskie', 'ketchup', 'smietanka'];
 const VEG = (id) => ['warzywa', 'mrozonki'].includes(INGREDIENTS[id].cat) && !['ziemniaki', 'batat', 'owoce', 'banany', 'jablka', 'pomarancza', 'rodzynki'].includes(id);
 const FRUIT = ['owoce', 'banany', 'jablka', 'pomarancza'];
-// Konkretne źródło białka w obiedzie (sam ser się nie liczy).
+// A real protein source in lunch (cheese alone doesn't count).
 const PROTEIN = ['jajka', 'tofu', 'fasola', 'fasolaBiala', 'ciecierzyca', 'soczewica', 'twarog', 'serekWiejski', 'tunczyk', 'losos', 'rybaBiala', 'sledz', 'krewetki'];
 export const ingCount = (r) => Object.keys(r.ing).filter((id) => !INGREDIENTS[id].pantry).length;
 export const stepCount = (r) => r.nsteps || (r.steps || []).length || 0;
@@ -84,14 +84,14 @@ export function healthInfo(r) {
   const proteinSource = ids.some((id) => INGREDIENTS[id].cat === 'mieso' || PROTEIN.includes(id));
   const ok = n.kcal >= lo && n.kcal <= hi && n.protein >= minP && veg >= 1 && !sugar && !ids.some((id) => PROCESSED.includes(id))
     && (r.type !== 'obiad' || proteinSource);
-  // Ranking: udział białka w kaloriach, warzywa, krótszy czas.
+  // Ranking: protein share of calories, vegetables, shorter time.
   const score = (n.protein * 4 / Math.max(1, n.kcal)) * 100 + veg * 4 - recipeTime(r) / 3 - ingCount(r);
   return { ok, score, veg, ...n };
 }
 
 export const isQuickHealthy = (r) => isQuick(r) && healthInfo(r).ok;
 
-// Sprzęt: bez piekarnika zostają dania z piekarnika, które da się zrobić w air fryerze.
+// Equipment: without an oven, keep oven dishes that can be made in an air fryer.
 export function fitsEquipment(r, s) {
   if (r.oven && s.oven === false) return !!(s.airfryer && r.af);
   if (r.af && !r.oven && s.airfryer === false) return false;
@@ -99,11 +99,11 @@ export function fitsEquipment(r, s) {
 }
 export const recipeTime = (r) => r.totalTime || (r.steps || []).reduce((a, x) => a + x[1], 0) || 60;
 
-// Dania, przy których stoi się przy patelni (smażenie partiami, lepienie) albo czeka na ciasto
-// drożdżowe. Czas ze strony często tego nie obejmuje, więc w trybie „Minimum” je pomijamy.
+// Dishes that keep you at the pan (frying in batches, shaping dumplings) or waiting for yeast
+// dough. The site's time often leaves this out, so "Minimum" mode skips them.
 const LABOR = /plac(ek|ki|uszk)|naleśnik|nalesnik|racuch|krokiet|pierog|pierożk|kotlet|kotlecik|devolay|schabow|panierowan|kopytk|klusk|knedl|gofr|pancake|frytk|gołąb|golab|uszk|pyz|kluch|tortellin|ravioli|pasztecik|drożdż|drozdz|proziak|podpłomyk|wieniec|bułk|chleb|ciasto|gnocchi|własnej roboty|domow\w* makaron|lazani|lasagn|roladk|rolad/;
 
-// Poziom ceny porcji: obiady tanie do 5 zł, średnie do 9 zł; śniadania i kolacje do 3 i do 6 zł.
+// Price tier per serving: lunches cheap up to 5 zł, medium up to 9 zł; breakfasts and suppers up to 3 and 6 zł.
 export const PRICE_LIMITS = { obiad: [5, 9], sniadanie: [3, 6] };
 export const PRICE_LABELS = { tanie: 'tanie', srednie: 'średnie', drogie: 'drogie' };
 export function priceTier(r, s) {
@@ -129,9 +129,9 @@ export function fitsDiet(recipe, s) {
   if (s.diet === 'wege' && !recipe.tags.includes('wege')) return false;
   if (s.diet === 'wegan' && !recipe.tags.includes('wegan')) return false;
   if (s.glutenFree && !recipe.tags.includes('bezgl')) return false;
-  // „Nie dla mnie” obowiązuje zawsze, także gdy planer luzuje inne filtry.
+  // "Nie dla mnie" (Not for me) always applies, even when the planner relaxes other filters.
   if (s.disliked?.length && s.disliked.includes(recipe.id)) return false;
-  // Dania z poprzednich tygodni i z dzisiejszych losowań (po id i po nazwie, bo to samo danie bywa w kilku źródłach).
+  // Dishes from previous weeks and today's draws (by id and by name, since the same dish can appear in several sources).
   if (s.excluded?.length) {
     const key = s.excluded.join('|');
     if (!recentCache.has(key)) recentCache.set(key, new Set(s.excluded));
@@ -142,7 +142,7 @@ export function fitsDiet(recipe, s) {
   return true;
 }
 
-// ── Na słodko / na słono (śniadania i kolacje) ──
+// ── Sweet / savory (breakfasts and suppers) ──
 const SWEET_NAME = /biszkopt|cesarski|kaiserschmarrn|brzoskw|morel|karmel|syrop|wanili|budyniow|kokos|nutell|powidł|konfitur|bakali|rodzyn|daktyl|figi|mango|ananas|owsiank|naleśnik|nalesnik|placusz|pancake|gofr|racuch|jaglank|pudding|smoothie|koktajl|granol|musli|słodk|slodk|czekolad|kakao|budyń|budyn|na mleku|kasza manna|kaszka|chia|owoc|banan|jabł|jabl|gruszk|truskaw|malin|borówk|jagod|śliwk|dyni.*cynamon|cynamon|dżem|miód|miod|tosty francusk|french toast|brioch|drożdżówk|bułeczk.*słod|rogal|twarożek na słodko|serniczk|ryż na mleku|shake/;
 const SAVORY_NAME = /jajeczn|jajk|jaja|omlet|szakszuk|frittat|kanapk|tost(?!y francusk)|pasta (z|jajeczn)|hummus|twarożek(?! na słodko)|serek wiejski z|szynk|łoso|losos|tuńczyk|tunczyk|śledź|sledz|makrel|awokado|pomidor|ogór|ogor|sałatk|salatk|wrap|tortill|burrito|quesadill|zapiekank|grzank|bruschett|caprese|ser |serem|pieczark|szpinak|warzyw|kiełbas|parów|bekon|boczek|zup/;
 const SWEET_ING = ['owoce', 'banany', 'jablka', 'miod', 'kakao', 'masloOrz', 'rodzynki', 'pomarancza'];
@@ -150,12 +150,12 @@ const SAVORY_ING = ['jajka', 'szynka', 'kielbasa', 'parowki', 'boczek', 'losos',
 export function taste(r) {
   if (r._taste) return r._taste;
   const n = r.name.toLowerCase();
-  // Nazwy jednoznacznie słodkie, nawet gdy w składnikach dominują jajka.
+  // Names that are clearly sweet, even when eggs dominate the ingredients.
   if (/cesarski|kaiserschmarrn|biszkopt|na słodko|na slodko|french toast|tosty francusk/.test(n)) return (r._taste = 'slodkie');
   const ids = Object.keys(r.ing);
   let sweet = ids.filter((id) => SWEET_ING.includes(id)).length + ((r.ing.cukier || 0) > 10 ? 1 : 0);
   let savory = ids.filter((id) => SAVORY_ING.includes(id)).length;
-  // Nazwa waży najwięcej: „Owsianka…” jest słodka, nawet z orzechami; „Omlet…” słony.
+  // The name weighs most: "Owsianka…" is sweet even with nuts; "Omlet…" is savory.
   if (SWEET_NAME.test(n)) sweet += 4;
   if (SAVORY_NAME.test(n)) savory += 3;
   r._taste = sweet > savory ? 'slodkie' : 'slone';
@@ -164,14 +164,14 @@ export function taste(r) {
 export const TASTE_LABELS = { slodkie: 'na słodko', slone: 'na słono' };
 
 export function candidates(type, s) {
-  // Smak: śniadania według s.breakfastTaste, kolacje według s.supperTaste.
+  // Taste: breakfasts by s.breakfastTaste, suppers by s.supperTaste.
   const want = type === 'sniadanie' ? s.breakfastTaste : type === 'kolacja' ? s.supperTaste : null;
   return ALL_RECIPES.filter((r) => r.type === poolType(type) && fitsDiet(r, s) && (!want || want === 'any' || taste(r) === want));
 }
 
-// Ile różnych dań na dany okres: obiady co ~2-3 dni, śniadania co ~4 dni.
+// How many different dishes per period: lunches every ~2-3 days, breakfasts every ~4 days.
 export function dishCount(type, days, effort) {
-  // Przy „Minimum” mniej różnych dań: jedno danie na 3–4 dni, czyli rzadsze gotowanie.
+  // With "Minimum" fewer different dishes: one dish per 3–4 days, i.e. cooking less often.
   if (effort === 'min' || effort === 'ultra') return type === 'obiad' ? Math.min(4, Math.max(1, Math.ceil(days / 3.5))) : Math.min(3, Math.max(1, Math.ceil(days / 5)));
   if (type === 'obiad') return Math.min(6, Math.max(1, Math.ceil(days / 2.5)));
   return Math.min(4, Math.max(1, Math.ceil(days / 4)));
@@ -183,11 +183,11 @@ function splitDays(days, k) {
   return Array.from({ length: k }, (_, i) => base + (i < extra ? 1 : 0));
 }
 
-// Rozkłada dania na kolejne dni: najpierw te, które najkrócej wytrzymują w lodówce.
-// Każde danie dzieli się na partie (batches): gotujesz wszystko pierwszego dnia, a jeśli danie
-// nie dotrwa do końca, a nie da się go mrozić, kolejną partię gotujesz świeżo w trakcie tygodnia.
-// Podział dziennych kalorii między posiłki. Liczymy tylko posiłki, które są w planie,
-// więc razem zawsze dają pełny cel (np. bez kolacji: śniadanie ok. 43%, obiad ok. 57%).
+// Spreads dishes over consecutive days: those that keep shortest in the fridge go first.
+// Each dish is split into batches: you cook everything on day one, and if the dish
+// won't last until the end and can't be frozen, you cook the next batch fresh during the week.
+// Split of daily calories between meals. Only meals included in the plan count,
+// so together they always hit the full target (e.g. without supper: breakfast ~43%, lunch ~57%).
 const MEAL_BASE = { sniadanie: 0.3, obiad: 0.4, kolacja: 0.3 };
 export function mealShares(s) {
   const on = ['obiad', s.breakfasts && 'sniadanie', s.suppers && 'kolacja'].filter(Boolean);
@@ -195,15 +195,15 @@ export function mealShares(s) {
   return Object.fromEntries(on.map((t) => [t, MEAL_BASE[t] / sum]));
 }
 
-// Kolacje bierzemy z tej samej puli lekkich dań co śniadania.
+// Suppers come from the same pool of light dishes as breakfasts.
 export const poolType = (t) => (t === 'kolacja' ? 'sniadanie' : t);
 
-// Mnożnik porcji, żeby posiłek dał docelowe kalorie (np. 1,5 = półtorej porcji z przepisu).
+// Serving multiplier so the meal hits its target calories (e.g. 1.5 = one and a half recipe servings).
 export function portionFactor(r, type, s) {
   if (!s?.kcal) return 1;
   const k = nutrition(r).kcal || 1;
   const target = s.kcal * (mealShares(s)[type] || 0);
-  // Najwyżej podwójna porcja; gdy w planie jest tylko obiad, potrójna, żeby dobić do celu.
+  // At most a double serving; when the plan has lunch only, triple, to reach the target.
   const cap = Object.keys(mealShares(s)).length === 1 ? 3 : 2;
   return Math.min(cap, Math.max(0.5, Math.round((target / k) * 4) / 4));
 }
@@ -244,7 +244,7 @@ export function scaled(id, q, factor) {
   return INGREDIENTS[id].whole ? Math.ceil(q * factor - 0.01) : q * factor;
 }
 
-// Id produktu, który faktycznie kupujesz (np. mleko bez laktozy zamiast zwykłego).
+// Id of the product you actually buy (e.g. lactose-free milk instead of regular).
 export const buyId = (id, s) => (s?.lactoseFree && LACTOSE_FREE[id]) || id;
 
 export function needs(meals, s) {
@@ -270,7 +270,7 @@ export function shoppingList(meals, fridge = {}, s) {
     }
     const have = fridge[id] || 0;
     const missing = Math.max(0, qty - have);
-    // Tolerancja 3%: nie kupuj drugiego opakowania przez kilka gramów.
+    // 3% tolerance: don't buy a second package over a few grams.
     const packs = missing > 0 ? Math.ceil(missing / ing.pack - 0.03) || 1 : 0;
     const cost = packs * ing.price;
     total += cost;
@@ -286,7 +286,7 @@ export function planCost(meals, fridge, s) {
   return shoppingList(meals, fridge, s).total;
 }
 
-// Szacowany koszt porcji: cena proporcjonalna do zużytej ilości (bez zaokrąglania do opakowań).
+// Estimated cost per serving: price proportional to the amount used (no rounding up to packages).
 export function costPerPortion(recipe, s) {
   let c = 0;
   for (const [id, q] of Object.entries(recipe.ing)) {
@@ -296,8 +296,8 @@ export function costPerPortion(recipe, s) {
   return c / recipe.serves;
 }
 
-// ── Nauka gustu ──
-// Cechy dania: składniki, słowa ze składników i przypraw (rdzenie, np. „cytry”, „curry”) i rodzaj dania.
+// ── Taste learning ──
+// Dish features: ingredients, words from ingredients and spices (stems, e.g. "cytry", "curry") and dish type.
 const BORING = new Set(['i:przyprawy', 'i:olej', 'i:cebula', 'i:czosnek', 'w:cebul', 'w:czosn', 'w:olej', 'w:oliwa', 'w:maslo', 'w:masla', 'w:wody', 'w:woda']);
 const NAME_STOP = new Set(['przepis', 'domowy', 'domowa', 'domowe', 'szybki', 'szybka', 'szybkie', 'prosty', 'prosta', 'proste', 'najlepszy', 'klasyczny', 'klasyczna', 'pyszny', 'pyszna', 'zdrowy', 'zdrowa', 'lekki', 'lekka', 'wersji', 'stylu', 'sposob', 'sposoby'] );
 export function features(r) {
@@ -305,14 +305,14 @@ export function features(r) {
   const f = new Set();
   for (const id of Object.keys(r.ing)) if (!INGREDIENTS[id].pantry || id === 'maslo') f.add('i:' + id);
   for (const w of (r.words || '').split(' ')) if (w.length >= 4) f.add('w:' + w.slice(0, 5));
-  // Słowa z nazwy („Imbirowy kurczak”, „…z cytryną”) też mówią o smaku.
+  // Words from the name ("Imbirowy kurczak", "…z cytryną") also say something about taste.
   for (const w of norm(r.name).split(/[^a-z]+/)) if (w.length >= 5 && !NAME_STOP.has(w)) f.add('w:' + w.slice(0, 5));
   f.add('k:' + dishKind(r));
   r._f = [...f].filter((x) => !BORING.has(x));
   return r._f;
 }
 
-// Rzadkie cechy mówią o guście więcej niż częste (IDF).
+// Rare features say more about taste than common ones (IDF).
 let IDF = null;
 function idf(f) {
   if (!IDF) {
@@ -323,7 +323,7 @@ function idf(f) {
   return IDF.get(f) || 0;
 }
 
-// Profil gustu z ulubionych (+) i „nie dla mnie” (−): wagi cech i par cech (połączenia smakowe).
+// Taste profile from favorites (+) and "not for me" (−): weights of features and feature pairs (flavor pairings).
 export function buildProfile(likedIds = [], dislikedIds = []) {
   const w = new Map();
   const pairs = new Map();
@@ -337,7 +337,7 @@ export function buildProfile(likedIds = [], dislikedIds = []) {
         w.set(x, (w.get(x) || 0) + sign * idf(x));
         if (sign > 0) pos.add(x);
       }
-      // Połączenia: pary najbardziej charakterystycznych cech dania.
+      // Pairings: pairs of the dish's most distinctive features.
       const top = [...fs].sort((a, b) => idf(b) - idf(a)).slice(0, 6);
       for (let i = 0; i < top.length; i++) for (let j = i + 1; j < top.length; j++) {
         const key = [top[i], top[j]].sort().join('|');
@@ -351,7 +351,7 @@ export function buildProfile(likedIds = [], dislikedIds = []) {
   return { w, pairs, pairList, pos, likedSet: new Set(likedIds), liked: likedIds.length, disliked: new Set(dislikedIds), cache: new Map() };
 }
 
-// Dopasowanie dania do gustu (0 = obojętne, więcej = bardziej w Twoim stylu).
+// How well a dish matches the taste (0 = neutral, higher = more your style).
 export function affinity(r, p) {
   if (!p || (!p.w.size && !p.pairs.size)) return 0;
   if (p.cache?.has(r.id)) return p.cache.get(r.id);
@@ -365,7 +365,7 @@ export function affinity(r, p) {
   return a;
 }
 
-// Co profil mówi o guście, po ludzku: najmocniejsze cechy i połączenia.
+// What the profile says about taste, in plain words: strongest features and pairings.
 export function describeProfile(p) {
   const label = (x) => {
     const [t, v] = [x[0], x.slice(2)];
@@ -375,15 +375,15 @@ export function describeProfile(p) {
   const likes = [...p.w].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).map(([x]) => label(x)).filter(Boolean);
   const combos = [...p.pairs].filter(([k, v]) => v > 0 && !k.includes('k:')).sort((a, b) => b[1] - a[1])
     .map(([k]) => k.split('|').map(label)).filter(([a, b]) => a && b && a !== b).map(([a, b]) => `${a} + ${b}`);
-  // „Rzadziej” tylko dla cech, których nie ma w żadnym ulubionym daniu (ani jako produkt, ani jako słowo).
+  // "Rzadziej" (Less often) only for features absent from every favorite dish (neither as a product nor as a word).
   const inLiked = (x) => p.pos.has(x) || (x.startsWith('i:') && p.pos.has('w:' + norm(INGREDIENTS[x.slice(2)]?.name || '').slice(0, 5)));
   const avoid = [...p.w].filter(([x, v]) => v < 0 && !inLiked(x)).sort((a, b) => a[1] - b[1]).map(([x]) => label(x)).filter(Boolean);
   const uniq = (a) => [...new Set(a)].slice(0, 5);
   return { likes: uniq(likes), combos: uniq(combos).slice(0, 3), avoid: uniq(avoid).slice(0, 3) };
 }
 
-// Losowanie ważone bez powtórzeń: dania podobne do ulubionych wypadają częściej.
-// Skumulowane wagi liczymy raz na pulę, potem każde losowanie to wyszukiwanie binarne.
+// Weighted sampling without replacement: dishes similar to favorites come up more often.
+// Cumulative weights are computed once per pool; each draw is then a binary search.
 function weightedSampler(arr, weight) {
   const cum = [];
   let t = 0;
@@ -409,7 +409,7 @@ function sample(arr, k, rng) {
   return a.slice(0, k);
 }
 
-// Rodzaj dania do pilnowania urozmaicenia: słowo kluczowe z nazwy, a gdy brak — pierwsze słowo.
+// Dish type for keeping variety: a keyword from the name, or the first word if none.
 const KINDS = ['owsiank', 'omlet', 'jajeczn', 'jajk', 'nalesn', 'plack', 'placusz', 'makaron', 'spaghetti', 'penne', 'zup', 'krem', 'salatk', 'kanapk', 'tost', 'pasta', 'losos', 'kurczak', 'ryz', 'kasz', 'tortill', 'wrap', 'burrito', 'gulasz', 'curry', 'twaroz', 'serek', 'jogurt', 'szaszl', 'pierogi', 'risotto', 'kaszotto'];
 export function dishKind(r) {
   const n = norm(r.name);
@@ -423,10 +423,10 @@ export function buildMeals(dinnerIds, breakfastIds, s, supperIds = []) {
   return meals;
 }
 
-// Losuje wiele kombinacji dań i wybiera taką, która mieści się w budżecie.
-// Składniki liczone w całych opakowaniach, więc dania dzielące produkty wychodzą taniej.
-// Kandydaci z łagodzeniem filtrów, gdy nic nie zostaje: najpierw inne źródła, potem dłuższy czas,
-// na końcu bez „Bez glutenu”. „Czego nie jesz”, dieta i sprzęt zostają zawsze.
+// Draws many dish combinations and picks one that fits the budget.
+// Ingredients are counted in whole packages, so dishes that share products come out cheaper.
+// Candidates with filters relaxed when nothing is left: first other sources, then longer time,
+// finally without "Bez glutenu" (Gluten-free). "Czego nie jesz", diet and equipment always stay.
 export function candidatesRelaxed(type, s) {
   const steps = [s, { ...s, source: 'all' }, { ...s, source: 'all', effort: s.effort === 'ultra' ? 'min' : 'normal' }, { ...s, source: 'all', effort: 'any' }, { ...s, source: 'all', effort: 'any', price: 'any' }, { ...s, source: 'all', effort: 'any', price: 'any', glutenFree: false }, { ...s, source: 'all', effort: 'any', price: 'any', glutenFree: false, excluded: [] }, { ...s, source: 'all', effort: 'any', price: 'any', glutenFree: false, excluded: [], breakfastTaste: 'any', supperTaste: 'any' }];
   for (const x of steps) {
@@ -446,9 +446,9 @@ export function generatePlan(s, fridge = {}, rng = Math.random, tries = 2500) {
   const kb = s.breakfasts ? Math.min(dishCount('sniadanie', s.days, s.effort), breakfasts.length) : 0;
   const kk = s.suppers ? Math.min(dishCount('sniadanie', s.days, s.effort), suppers.length) : 0;
 
-  // Gust: wagi losowania z dopasowania do ulubionych, znormalizowane w każdej puli.
+  // Taste: draw weights from the match to favorites, normalized within each pool.
   const prefs = s.prefs;
-  // Skala: 95. percentyl dopasowania w puli, żeby kilka „rekordowych” dań nie spłaszczało reszty.
+  // Scale: 95th percentile of the match in the pool, so a few "top" dishes don't flatten the rest.
   const scaleOf = (pool) => {
     const v = pool.map((r) => Math.abs(affinity(r, prefs))).sort((a, b) => a - b);
     return Math.max(1e-6, v[Math.floor(v.length * 0.95)] || 0);
@@ -458,7 +458,7 @@ export function generatePlan(s, fridge = {}, rng = Math.random, tries = 2500) {
   const weighter = (pool, key) => {
     if (!prefs?.liked || !pool.length) return null;
     const sc = (scales[key] = scaleOf(pool));
-    // Same ulubione dania dostają dodatkową szansę (rotacja 2 tygodni nadal obowiązuje).
+    // Favorite dishes themselves get an extra chance (the 2-week rotation still applies).
     return (r) => Math.exp(3 * norm1(r, sc)) * (prefs.likedSet.has(r.id) ? 6 : 1);
   };
   const wd = weighter(dinners, 'obiad'), wb = weighter(breakfasts, 'sniadanie'), wk = weighter(suppers, 'kolacja');
@@ -471,7 +471,7 @@ export function generatePlan(s, fridge = {}, rng = Math.random, tries = 2500) {
 
   const seen = new Set();
   const results = [];
-  // Druga runda bez zasady urozmaicenia, gdy przy ostrych filtrach zostało za mało różnych dań.
+  // A second round without the variety rule when strict filters left too few distinct dishes.
   let strict = true;
   for (let t = 0; t < tries * 2; t++) {
     if (t === tries) {
@@ -481,14 +481,14 @@ export function generatePlan(s, fridge = {}, rng = Math.random, tries = 2500) {
     }
     const d = pick(dinners, kd, wd).map((r) => r.id).sort();
     const b = pick(breakfasts, kb, wb).map((r) => r.id).sort();
-    // Kolacje inne niż śniadania; przy bardzo małej puli mogą się powtórzyć.
+    // Suppers differ from breakfasts; with a very small pool they may repeat.
     const other = suppers.filter((r) => !b.includes(r.id));
     const k = pick(other.length >= kk ? other : suppers, kk, wk).map((r) => r.id).sort();
     const key = d.join(',') + '|' + b.join(',') + '|' + k.join(',');
     if (seen.has(key)) continue;
     seen.add(key);
-    // Urozmaicenie: dwa obiady tego samego rodzaju (np. dwa razy naleśniki) odpadają.
-    // Rodzaj dania: ikona, a dla ogólnej ikony pierwsze słowo nazwy („Pasta z awokado…”).
+    // Variety: two lunches of the same type (e.g. pancakes twice) are rejected.
+    // Dish type: the icon, or for a generic icon the first word of the name ("Pasta z awokado…").
     const dup = (k) => new Set(k).size < k.length;
     const same = (ids) => {
       const rs = ids.map((id) => recipeById[id]);
@@ -497,17 +497,17 @@ export function generatePlan(s, fridge = {}, rng = Math.random, tries = 2500) {
     if (strict && (same(d) || same([...b, ...k]) || dup([...d, ...b, ...k].map((id) => dishKind(recipeById[id]))))) continue;
     const meals = buildMeals(d, b, s, k);
     const cost = planCost(meals, fridge, s);
-    // Kary w rankingu: każde dodatkowe gotowanie w tygodniu i niedobór kalorii względem celu.
+    // Ranking penalties: each extra cooking session in the week and calorie shortfall versus the target.
     let score = cost + (s.effort === 'min' || s.effort === 'ultra' ? 12 : 5) * (cookDays(meals).length - 1);
     if (s.kcal) {
       const goal = s.kcal;
-      // Kara za odchylenie każdego dnia w obie strony (za mało jedzenia i przekroczenie limitu).
-      // Waży mocno, bo stały cel kalorii jest ważniejszy niż kilka złotych różnicy.
+      // Penalty for each day's deviation in either direction (too little food or going over the limit).
+      // Weighted heavily, since the fixed calorie target matters more than a few zł difference.
       const dev = Array.from({ length: s.days }, (_, i) => Math.abs(goal - dayNutrition(meals, i).kcal)).reduce((a, x) => a + x, 0) / s.days;
       score += (dev / goal) * s.budget * 3;
     }
     if (prefs?.liked) {
-      // Bonus za dopasowanie do gustu, w złotówkach względem budżetu.
+      // Bonus for matching taste, in zł relative to the budget.
       const parts = [[d, scales.obiad], [b, scales.sniadanie], [k, scales.kolacja]].filter(([ids, sc]) => ids.length && sc);
       const fit = parts.reduce((a, [ids, sc]) => a + ids.reduce((x, id) => x + norm1(recipeById[id], sc), 0) / ids.length, 0) / (parts.length || 1);
       score -= fit * s.budget * 0.4;
@@ -520,18 +520,18 @@ export function generatePlan(s, fridge = {}, rng = Math.random, tries = 2500) {
   const within = results.filter((r) => r.cost <= s.budget);
   let chosen;
   if (within.length) {
-    // Losowo spośród mieszczących się w budżecie, z lekką preferencją tańszych.
-    // Szersza pula dobrych planów = większa różnorodność przy kolejnych losowaniach.
+    // Random pick among those within budget, with a slight preference for cheaper ones.
+    // A wider pool of good plans = more variety across subsequent draws.
     const pool = within.slice(0, Math.max(1, Math.min(60, Math.ceil(within.length * 0.3))));
     chosen = pool[Math.floor(rng() * pool.length)];
   } else {
-    // Nic nie mieści się w budżecie: najlepszy wynik (koszt + trzymanie kalorii), a nie sam najtańszy.
+    // Nothing fits the budget: the best score (cost + hitting calories), not just the cheapest.
     chosen = results[0];
   }
   return { meals: chosen.meals, cost: chosen.cost, overBudget: chosen.cost > s.budget };
 }
 
-// Propozycje zamiany jednego dania, posortowane od najtańszego planu.
+// Suggestions for swapping one dish, sorted from the cheapest plan.
 export function swapOptions(plan, index, fridge = {}) {
   const s = plan.settings;
   const current = plan.meals[index];
@@ -558,7 +558,7 @@ export function grams(id, q) {
   return q * (I.gPerSzt || 100);
 }
 
-// Kalorie i białko na porcję. Przepisy z paczek mogą mieć własne wartości (nutr), pozostałe liczymy ze składników.
+// Calories and protein per serving. Pack recipes may carry their own values (nutr); the rest are computed from ingredients.
 const nutrCache = new Map();
 export function nutrition(r) {
   if (r.nutr) return r.nutr;
@@ -574,9 +574,9 @@ export function nutrition(r) {
   return nutrCache.get(r.id);
 }
 
-// Suma na osobę w danym dniu planu.
+// Per-person total for a given plan day.
 export function dayNutrition(meals, day) {
-  // Zaokrąglamy na końcu (mnożnik porcji daje ułamki).
+  // Round at the end (the serving multiplier produces fractions).
   const out = { kcal: 0, protein: 0 };
   for (const m of meals) {
     if (!m.days.includes(day)) continue;

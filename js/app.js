@@ -4,9 +4,9 @@ import {
   fmtQty, fmtZl, round2,
 } from './planner.js';
 
-// ── Stan (zapisywany w localStorage) ──
+// ── State (persisted in localStorage) ──
 const KEY = 'pudelko-v1';
-// Stały dzienny cel kalorii (ustawienie użytkowniczki), niezależnie od wcześniej zapisanych ustawień.
+// Fixed daily calorie target (the user's setting), regardless of previously saved settings.
 const KCAL = 1500;
 const DEFAULT_SETTINGS = { budget: 100, days: 5, people: 1, breakfasts: true, suppers: true, diet: 'all', glutenFree: false, source: 'all', kcal: 1500, avoid: ['papryka'], lactoseFree: true, effort: 'min', oven: false, airfryer: true, price: 'any', breakfastTaste: 'any', supperTaste: 'any' };
 const state = load();
@@ -15,20 +15,20 @@ function load() {
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(KEY)) || {}; } catch {}
   return {
-    // Ustawienia sprzed dodania kolacji: włączamy śniadania i kolacje, żeby plan dawał pełne 1500 kcal.
-    // Stałe ustawienia: 1500 kcal i zawsze trzy posiłki (śniadanie, obiad, kolacja).
-    // Źródło, którego paczki nie ma (np. w wersji bez prywatnych przepisów), wraca do „Wszystkie”.
+    // Settings from before suppers were added: enable breakfasts and suppers so the plan reaches the full 1500 kcal.
+    // Fixed settings: 1500 kcal and always three meals (breakfast, lunch, supper).
+    // A source whose pack is missing (e.g. in the build without private recipes) falls back to "Wszystkie" (All).
     settings: { ...DEFAULT_SETTINGS, ...saved.settings, kcal: KCAL, breakfasts: true, suppers: true, ...(saved.settings?.source in SITES && !LOADED_SITES.includes(saved.settings.source) ? { source: 'all' } : {}) },
     plan: saved.plan || null,
     fridge: saved.fridge || {},
     checked: saved.checked || {},
     done: saved.done || {},
-    // Ile czego dodało do lodówki odhaczenie zakupu i ile zabrało oznaczenie dania jako ugotowane,
-    // żeby odznaczenie mogło to cofnąć.
-    // Plany z poprzednich tygodni: { start, ids, names } — żeby nowy plan nie powtarzał dań.
+    // How much each checked-off purchase added to the fridge and how much marking a dish as cooked took out,
+    // so unchecking can undo it.
+    // Plans from previous weeks: { start, ids, names } — so a new plan doesn't repeat dishes.
     history: saved.history || [],
     seenToday: saved.seenToday || null,
-    // Oceny dań: ♥ (lubię) i 👎 (nie dla mnie), z datą. Z nich powstaje profil gustu.
+    // Dish ratings: ♥ (like) and 👎 (not for me), with a date. The taste profile is built from them.
     likes: saved.likes || {},
     dislikes: saved.dislikes || {},
     bought: saved.bought || {},
@@ -44,7 +44,7 @@ function save() {
   try { localStorage.setItem(KEY, JSON.stringify(rest)); } catch {}
 }
 
-// ── Daty ──
+// ── Dates ──
 const WEEKDAYS = ['niedziela', 'poniedziałek', 'wtorek', 'środa', 'czwartek', 'piątek', 'sobota'];
 const WD_SHORT = ['nd', 'pn', 'wt', 'śr', 'cz', 'pt', 'sb'];
 const MONTHS = ['sty', 'lut', 'mar', 'kwi', 'maj', 'cze', 'lip', 'sie', 'wrz', 'paź', 'lis', 'gru'];
@@ -73,7 +73,7 @@ const minTxt = (m) => (m >= 60 ? `${Math.floor(m / 60)} h ${m % 60 ? `${m % 60} 
 const view = document.getElementById('view');
 const sheet = document.getElementById('sheet');
 
-// Plan zapisany przed aktualizacją bazy może wskazywać przepisy, których już nie ma.
+// A plan saved before a database update may point to recipes that no longer exist.
 function dropStalePlan() {
   if (state.plan && state.plan.meals.some((m) => !recipeById[m.recipeId])) {
     state.plan = null;
@@ -191,7 +191,7 @@ const tasteChips = (action, cur) => [['any', 'Słodkie i słone'], ['slodkie', '
 const pricePill = (r, s) => { const t = priceTier(r, s); return `<span class="pill price-${t}">${PRICE_LABELS[t]}</span>`; };
 const priceChips = (action, cur) => ['any', 'tanie', 'srednie', 'drogie'].map((v) => `<button class="chip" data-action="${action}" data-v="${v}" aria-pressed="${(cur || 'any') === v}">${v === 'any' ? 'Każda cena' : PRICE_LABELS[v][0].toUpperCase() + PRICE_LABELS[v].slice(1)}</button>`).join('');
 
-// Oznaczenie sprzętu. Danie z piekarnika robione w air fryerze dostaje wskazówkę, jak przeliczyć.
+// Equipment label. An oven dish made in an air fryer gets a hint on how to convert it.
 function equipmentPill(r, s) {
   if (r.oven && r.af && s.oven === false) return '<span class="pill accent" title="Temperatura o ok. 20°C niższa, czas o ok. 20% krótszy niż w przepisie, w mniejszych porcjach">air fryer zamiast piekarnika</span>';
   if (r.af && !r.oven) return '<span class="pill accent">air fryer</span>';
@@ -346,7 +346,7 @@ function tasteNote() {
 }
 
 function historyNote() {
-  // Plan z wcześniejszego dnia trafi do historii przy układaniu nowego, więc liczymy go już teraz.
+  // A plan from an earlier day goes to history when a new one is built, so count it already now.
   const pending = state.plan && state.plan.start < todayStart() ? state.plan.meals.map((m) => m.recipeId) : [];
   const n = new Set([...state.history.filter((h) => h.start >= todayStart() - HISTORY_DAYS * DAY).flatMap((h) => h.ids), ...pending]).size;
   if (!n) return '<p class="muted small">Kolejne plany nie powtórzą dań z ostatnich 2 tygodni.</p>';
@@ -367,7 +367,7 @@ function readForm() {
   addAvoid(f.querySelector('#avoid-q')?.value);
 }
 
-// Profil gustu z ocen (liczony na nowo przy każdym planie, bo oceny się zmieniają).
+// Taste profile from ratings (recomputed for every plan, since ratings change).
 function tasteProfile() {
   const liked = Object.keys(state.likes).filter((id) => recipeById[id]);
   const disliked = Object.keys(state.dislikes).filter((id) => recipeById[id]);
@@ -381,12 +381,12 @@ function rateButtons(r, small = true) {
     <button class="${cls} ${disliked ? 'on-no' : ''}" data-action="dislike" data-id="${r.id}" aria-pressed="${disliked}" aria-label="Nie dla mnie: ${r.name}">👎${small ? '' : ' Nie dla mnie'}</button>`;
 }
 
-// Ile dni wstecz pamiętamy zjedzone dania.
+// How many days back we remember eaten dishes.
 const HISTORY_DAYS = 14;
 const DAY = 24 * 60 * 60 * 1000;
 const todayStart = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); };
 
-// Zapisuje obecny plan w historii (jeśli był w użyciu) i czyści stare wpisy.
+// Saves the current plan to history (if it was in use) and prunes old entries.
 function archivePlan() {
   const p = state.plan;
   const ids = p ? [...new Set(p.meals.map((m) => m.recipeId))] : [];
@@ -396,7 +396,7 @@ function archivePlan() {
   state.history = state.history.filter((h) => h.start >= todayStart() - HISTORY_DAYS * DAY);
 }
 
-// Dania pokazane w dzisiejszych losowaniach (najwyżej ok. 120 ostatnich).
+// Dishes shown in today's draws (at most ~120 most recent).
 function rememberSeen(plan) {
   if (state.seenToday?.day !== todayStart()) state.seenToday = { day: todayStart(), ids: [] };
   const ids = plan.meals.flatMap((m) => [m.recipeId, norm(recipeById[m.recipeId]?.name || '')]);
@@ -409,9 +409,9 @@ function recentDishes() {
 }
 
 function makePlan() {
-  // Plan z wcześniejszego dnia był już w użyciu, więc trafia do historii.
-  // „Wylosuj inne dania” tego samego dnia tylko go zastępuje, a jego dania odkładamy na bok,
-  // żeby kolejne losowanie dało coś nowego.
+  // A plan from an earlier day was already in use, so it goes to history.
+  // "Wylosuj inne dania" (Draw other dishes) on the same day just replaces it, and its dishes are set aside
+  // so the next draw gives something new.
   if (state.plan && state.plan.start < todayStart()) archivePlan();
   else if (state.plan) rememberSeen(state.plan);
   if (state.seenToday?.day !== todayStart()) state.seenToday = { day: todayStart(), ids: [] };
@@ -430,7 +430,7 @@ function makePlan() {
   save();
 }
 
-// Zakupy
+// Shopping
 
 function renderShopping() {
   if (!state.plan) return emptyState('🛒', 'Najpierw ułóż plan, a lista zakupów zrobi się sama.');
@@ -485,7 +485,7 @@ function listAsText() {
   return `Lista zakupów (${fmtZl(list.total)})\n${lines.join('\n')}`;
 }
 
-// Gotowanie
+// Cooking
 
 function renderCooking() {
   if (!state.plan) return emptyState('🍳', 'Najpierw ułóż plan, a tu pojawi się rozpiska gotowania.');
@@ -497,7 +497,7 @@ function renderCooking() {
       const tasks = [];
       p.meals.forEach((m) => m.batches.forEach((b, bi) => { if (b.cookDay === day) tasks.push({ m, b, bi }); }));
       const times = tasks.map(({ m }) => recipeTime(recipeById[m.recipeId])).sort((a, b) => b - a);
-      // Część kroków robisz równolegle, więc liczymy najdłuższe danie + połowę pozostałych.
+      // Some steps run in parallel, so count the longest dish + half of the others.
       const est = Math.round((times[0] + times.slice(1).reduce((a, t) => a + t, 0) * 0.5) / 5) * 5;
       tasks.sort((a, b) => totalTime(b.m) - totalTime(a.m));
       return `
@@ -539,7 +539,7 @@ function cookCard({ m, b, bi }) {
     </article>`;
 }
 
-// Lodówka
+// Fridge
 
 function renderFridge() {
   const entries = Object.entries(state.fridge);
@@ -563,7 +563,7 @@ function renderFridge() {
     ${entries.length ? '<button class="btn ghost" data-action="fridge-clear">Wyczyść lodówkę</button>' : ''}`;
 }
 
-// „jajka 6”, „mleko 1,5 l”, „2 kg ziemniaków” → nazwa + ilość w jednostce produktu.
+// "jajka 6", "mleko 1,5 l", "2 kg ziemniaków" → name + quantity in the product's unit.
 function parseFridgeText(text) {
   const t = text.toLowerCase().replace(',', '.');
   const m = t.match(/(\d+(?:\.\d+)?)\s*(kg|dag|g|ml|l|szt\.?|sztuk\w*|op\.?|opak\w*|paczk\w*|puszk\w*)?/);
@@ -579,7 +579,7 @@ function toProductQty(ing, n, unit) {
   if (unit === 'g' || unit === 'ml') return mass ? n : n / (ing.gPerSzt || 100);
   if (/^(op|opak|paczk|puszk)/.test(unit)) return n * ing.pack;
   if (/^szt/.test(unit)) return mass ? n * (ing.gPerSzt || ing.pack) : n;
-  // Bez jednostki: sztuki dla produktów na sztuki, małe liczby to opakowania, duże to gramy.
+  // No unit: pieces for per-piece products, small numbers are packages, large ones are grams.
   if (!mass) return n;
   return n <= 10 ? n * ing.pack : n;
 }
@@ -587,13 +587,13 @@ function toProductQty(ing, n, unit) {
 function fridgeMatches(text) {
   const { words, n, unit } = parseFridgeText(text);
   if (!words.length) return [];
-  // Odmiana: „jajek” → jaj…, „ziemniaków” → ziemnia…, więc porównujemy początki słów.
+  // Inflection: "jajek" → jaj…, "ziemniaków" → ziemnia…, so we compare word prefixes.
   const stems = words.map((w) => w.slice(0, Math.max(3, w.length - 2)));
   return Object.entries(INGREDIENTS)
     .filter(([id]) => id !== 'przyprawy' && id !== 'bulion')
     .map(([id, ing]) => {
       const nameWords = norm(ing.name).split(/[^a-z0-9]+/).filter(Boolean);
-      // Dokładne słowo 3 pkt, początek słowa 2 pkt, ten sam rdzeń 1 pkt; pierwsze słowo nazwy waży więcej.
+      // Exact word 3 pts, word prefix 2 pts, same stem 1 pt; the first word of the name weighs more.
       let score = 0;
       words.forEach((w, i) => {
         const best = Math.max(0, ...nameWords.map((nw, j) => {
@@ -626,7 +626,7 @@ function addToFridge(id, q) {
   if (input) input.focus();
 }
 
-// Przepisy
+// Recipes
 
 function renderRecipes() {
   const chip = (action, cur, v, label) => `<button class="chip" data-action="${action}" data-v="${v}" aria-pressed="${cur === v}">${label}</button>`;
@@ -652,7 +652,7 @@ function recipeList() {
   const all = ALL_RECIPES.filter((r) => (f === 'fav' ? state.likes[r.id] : r.type === f || r.tags.includes(f)) && (src === 'all' || siteOf(r) === src) && (pr === 'any' || priceTier(r, state.settings) === pr) && (f !== 'sniadanie' || !state.recipeTaste || state.recipeTaste === 'any' || taste(r) === state.recipeTaste));
   const base = all.filter((r) => !containsAvoided(r, stems) && fitsEquipment(r, state.settings));
   const hidden = all.length - base.length;
-  // Najpierw trafienia w nazwie dania, potem dania z takim składnikiem.
+  // Matches in the dish name first, then dishes with that ingredient.
   const list = !q ? base : [
     ...base.filter((r) => norm(r.name).includes(q)),
     ...base.filter((r) => !norm(r.name).includes(q) && Object.keys(r.ing).some((id) => norm(INGREDIENTS[id].name).includes(q))),
@@ -669,7 +669,7 @@ function recipeList() {
     ${list.length > shown.length ? `<button class="btn block" data-action="more">Pokaż więcej (${list.length - shown.length})</button>` : ''}`;
 }
 
-// Szybkie i zdrowe
+// Quick & healthy
 
 function renderQuick() {
   const s = state.settings;
@@ -737,7 +737,7 @@ function emptyState(icon, text) {
   return `<div class="empty"><div class="big">${icon}</div><p class="muted">${text}</p><a class="btn primary" href="#plan">Ułóż plan</a></div>`;
 }
 
-// ── Arkusze ──
+// ── Sheets ──
 
 function openSheet(html) {
   sheet.innerHTML = `<div class="inner">${html}</div>`;
@@ -769,7 +769,7 @@ function openRecipe(id) {
     ${recipeBody(r)}`);
 }
 
-// Partie dań z planu, które nie są jeszcze oznaczone jako ugotowane.
+// Dish batches from the plan that aren't marked as cooked yet.
 function uncookedBatches() {
   const out = [];
   state.plan.meals.forEach((m, mi) => m.batches.forEach((b, bi) => {
@@ -805,7 +805,7 @@ function startNewPlan(consumeRest) {
   route();
 }
 
-// Odhaczenie zakupu: kupiona ilość (całe opakowania) trafia do lodówki.
+// Checking off a purchase: the bought amount (whole packages) goes into the fridge.
 function markBought(id, on) {
   const it = shopping().items.find((x) => x.id === id);
   if (!it) return;
@@ -821,7 +821,7 @@ function markBought(id, on) {
   }
 }
 
-// Ugotowane danie zabiera z lodówki swoje składniki (tyle, ile w niej jest).
+// A cooked dish takes its ingredients out of the fridge (as much as is there).
 function consumeBatch(m, b, key) {
   const r = recipeById[m.recipeId];
   const f = (b.portions * (m.factor || 1)) / r.serves;
@@ -845,7 +845,7 @@ function unconsumeBatch(key) {
   delete state.done[`${key}:all`];
 }
 
-// ── Zdarzenia ──
+// ── Events ──
 
 let toastTimer;
 function toast(msg) {
@@ -860,7 +860,7 @@ document.addEventListener('click', async (e) => {
   const el = e.target.closest('[data-action]');
   if (!el) return;
   const a = el.dataset.action;
-  if (['check', 'step-done', 'fridge-qty', 'cooked'].includes(a)) return; // obsługiwane przez "change"
+  if (['check', 'step-done', 'fridge-qty', 'cooked'].includes(a)) return; // handled by "change"
   const s = state.settings;
   switch (a) {
     case 'preset': readForm(); s.budget = +el.dataset.v; break;
@@ -919,7 +919,7 @@ document.addEventListener('click', async (e) => {
     case 'recipe': return openRecipe(el.dataset.id);
     case 'close': return sheet.close();
     case 'copy-list':
-      // Na telefonie otwiera menu udostępniania (np. do notatek albo komunikatora).
+      // On a phone this opens the share menu (e.g. to notes or a messenger).
       if (navigator.share) {
         try { await navigator.share({ title: 'Lista zakupów', text: listAsText() }); return; } catch (err) {
           if (err?.name === 'AbortError') return;
@@ -978,7 +978,7 @@ document.addEventListener('submit', (e) => {
   route();
 });
 
-// Enter w polu „Czego nie jesz?” dodaje produkt zamiast od razu układać plan.
+// Enter in the "Czego nie jesz?" (What don't you eat?) field adds a product instead of building the plan right away.
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Enter' || e.target.id !== 'avoid-q') return;
   e.preventDefault();

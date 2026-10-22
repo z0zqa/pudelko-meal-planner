@@ -1,7 +1,7 @@
-// Ceny orientacyjne (tani dyskont, 2026). Każdy produkt kupuje się w całych opakowaniach.
-// whole: true — kupujesz i zużywasz w całości (jajka, tortille), więc ilości zaokrąglamy w górę.
-// kcal, protein: na 100 g (dla sztuk liczone przez gPerSzt).
-// pantry: true — zakładamy, że to masz w domu (olej, przyprawy), nie trafia na listę zakupów.
+// Approximate prices (cheap discount store, 2026). Every product is bought in whole packages.
+// whole: true — bought and used up whole (eggs, tortillas), so quantities are rounded up.
+// kcal, protein: per 100 g (for pieces, converted via gPerSzt).
+// pantry: true — assumed to be at home already (oil, spices), not added to the shopping list.
 
 export const CATEGORIES = {
   warzywa: 'Warzywa i owoce',
@@ -68,8 +68,8 @@ export const INGREDIENTS = {
   warzywaMroz: { name: 'Mieszanka warzyw stir-fry', unit: 'g', pack: 450, price: 5.49, cat: 'mrozonki', kcal: 40, protein: 2 },
   szpinak: { name: 'Szpinak mrożony', unit: 'g', pack: 450, price: 4.99, cat: 'mrozonki', kcal: 23, protein: 3 },
 
-  // ── Produkty dodane dla przepisów z paczek ──
-  // gPerSzt: ile waży sztuka (do przeliczania gramów na sztuki); gPerCup: gramy w szklance 250 ml.
+  // ── Products added for pack recipes ──
+  // gPerSzt: weight of one piece (to convert grams to pieces); gPerCup: grams in a 250 ml cup.
   pomidor: { name: 'Pomidory świeże', unit: 'g', pack: 1000, price: 8.99, cat: 'warzywa', gPerSzt: 150, kcal: 18, protein: 1 },
   por: { name: 'Por', unit: 'szt', pack: 1, price: 2.99, cat: 'warzywa', gPerSzt: 250, kcal: 31, protein: 2 },
   seler: { name: 'Seler korzeniowy', unit: 'g', pack: 600, price: 3.49, cat: 'warzywa', gPerSzt: 600, kcal: 21, protein: 1.5 },
@@ -151,10 +151,10 @@ export const INGREDIENTS = {
   przyprawy: { name: 'Sól, pieprz, przyprawy', unit: 'szczypta', pack: 1, price: 0, cat: 'spiżarnia', pantry: true, kcal: 0, protein: 0 },
 };
 
-// Każdy przepis: składniki na `serves` porcji, kroki [opis, minuty], `keeps` = ile dni wytrzyma w lodówce.
-// tags: wege (bez mięsa), wegan (bez produktów odzwierzęcych), bezgl (bez glutenu)
-// Wersje bez laktozy: przy włączonym „Bez laktozy” lista zakupów bierze je zamiast zwykłych.
-// Sery dojrzewające (gouda, parmezan) i masło mają śladowe ilości laktozy, więc zostają.
+// Each recipe: ingredients for `serves` servings, steps [description, minutes], `keeps` = days it lasts in the fridge.
+// tags: wege (no meat), wegan (no animal products), bezgl (gluten-free)
+// Lactose-free versions: with "Bez laktozy" (Lactose-free) on, the shopping list uses them instead of the regular ones.
+// Aged cheeses (gouda, parmesan) and butter have trace lactose, so they stay.
 const LF = (base, name, price) => ({ ...INGREDIENTS[base], name, price });
 Object.assign(INGREDIENTS, {
   mlekoBL: LF('mleko', 'Mleko bez laktozy / napój roślinny', 4.79),
@@ -172,7 +172,7 @@ export const LACTOSE_FREE = {
 };
 
 export const RECIPES = [
-  // ── Obiady ──
+  // ── Lunches ──
   {
     id: 'chili', words: 'papryka mielona kmin chili', name: 'Chili con carne z ryżem', type: 'obiad', emoji: '🌶️', serves: 4, keeps: 4, freezes: true,
     desc: 'Mięso, fasola i pomidory w jednym garnku. Następnego dnia smakuje jeszcze lepiej.',
@@ -300,7 +300,7 @@ export const RECIPES = [
     steps: [['Nagrzej piekarnik do 220°C. Pokrój warzywa, wymieszaj z ciecierzycą i olejem.', 10], ['Piecz na blasze.', 25], ['Zalej bulgur wrzątkiem 1:2 i odstaw pod przykryciem.', 15], ['Wymieszaj wszystko z cytryną, pokrusz fetę, rozłóż do pojemników.', 5]],
   },
 
-  // ── Air fryer: szybko, mało składników, dużo białka ──
+  // ── Air fryer: quick, few ingredients, high protein ──
   {
     id: 'af-losos', totalTime: 18, af: 1, name: 'Łosoś z air fryera z brokułem i ryżem', type: 'obiad', emoji: '🐟', serves: 2, keeps: 2,
     desc: 'Łosoś i brokuł pieką się razem w koszu, w tym czasie gotuje się ryż. Kwadrans i gotowe.',
@@ -351,7 +351,7 @@ export const RECIPES = [
     steps: [['Przełóż jogurt do 2 słoików, dodaj owoce, płatki i orzechy.', 5]],
   },
 
-  // ── Śniadania bez gotowania (5–10 min) ──
+  // ── No-cook breakfasts (5–10 min) ──
   {
     id: 'nc-twarozek-ogorek', nocook: 1, totalTime: 7, name: 'Twarożek z ogórkiem i koperkiem', type: 'sniadanie', emoji: '🥒', serves: 2, keeps: 2,
     desc: 'Twaróg rozgnieciony z jogurtem, ogórkiem i koperkiem. Do chleba albo prosto z miski.',
@@ -444,7 +444,7 @@ export const RECIPES = [
     steps: [['Rozgnieć twaróg z jogurtem i miodem.', 3], ['Dodaj owoce.', 2]],
   },
 
-  // ── Śniadania ──
+  // ── Breakfasts ──
   {
     id: 'owsianka-nanoc', nocook: 1, name: 'Owsianka na noc z bananem', type: 'sniadanie', emoji: '🍌', serves: 4, keeps: 4,
     desc: 'Płatki zalane wieczorem, rano gotowe. Z masłem orzechowym.',

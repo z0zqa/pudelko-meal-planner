@@ -167,10 +167,10 @@ function renderPlan() {
   const sessions = cookDays(p.meals);
 
   return `
-    <section class="card">
+    <section class="card summary">
       <div class="row spread">
         <div>
-          <div class="muted small">Zakupy na ${daysTxt(s.days)} dla ${s.people} ${plural(s.people, 'osoby', 'osób', 'osób')}</div>
+          <div class="eyebrow">Zakupy na ${daysTxt(s.days)} · ${s.people} ${plural(s.people, 'osoba', 'osoby', 'osób')}</div>
           <div class="budget-big">${fmtZl(list.total)}</div>
         </div>
         <span class="pill ${left >= 0 ? 'ok' : 'warn'}">${left >= 0 ? `zostaje ${fmtZl(left)}` : `brakuje ${fmtZl(-left)}`}</span>
@@ -186,10 +186,10 @@ function renderPlan() {
       </div>
     </section>
 
-    <h2>Obiady</h2>
+    ${mealHead('obiad', 'Obiady')}
     ${dinners.map(([m, i]) => dishCard(m, i)).join('')}
-    ${breakfasts.length ? `<h2>Śniadania</h2>${breakfasts.map(([m, i]) => dishCard(m, i)).join('')}` : ''}
-    ${suppers.length ? `<h2>Kolacje</h2>${suppers.map(([m, i]) => dishCard(m, i)).join('')}` : ''}
+    ${breakfasts.length ? `${mealHead('sniadanie', 'Śniadania')}${breakfasts.map(([m, i]) => dishCard(m, i)).join('')}` : ''}
+    ${suppers.length ? `${mealHead('kolacja', 'Kolacje')}${suppers.map(([m, i]) => dishCard(m, i)).join('')}` : ''}
 
     <h2>Dzień po dniu</h2>
     <p class="muted small">${sessions.length === 1 ? 'Gotujesz raz, na początku. Potem tylko odgrzewasz.' : `Gotujesz ${sessions.length} razy: ${sessions.map((d) => dayLong(d)).join(', ')}.`}</p>
@@ -201,6 +201,11 @@ function renderPlan() {
       <button class="btn ghost" data-action="new-plan">Nowy plan</button>
     </div>`;
 }
+
+// Section heading with a lid in the meal's colour, matching the containers below it.
+const mealHead = (type, label) => `<div class="meal-head" style="--lid:var(--lid-${type})"><h2>${label}</h2></div>`;
+// A tear-off calendar page: weekday on top, day of the month below.
+const calPage = (d) => `<div class="cal"><b>${dayShort(d)}</b><span>${dayDate(d).getDate()}</span></div>`;
 
 function prefsLine(s) {
   const bits = [];
@@ -255,9 +260,9 @@ function dishCard(m, i) {
   const eq = equipmentPill(r, state.plan.settings);
   if (eq) tags.push(eq);
   return `
-    <article class="card dish">
+    <article class="card dish box lid-${m.type}">
       <div class="emoji">${r.emoji}</div>
-      <div>
+      <div style="min-width:0">
         <h3>${r.name}</h3>
         <div class="meta">${portionsTxt(m.portions)}${portionSize(m)} · ${daysRange(m.days)} · ${kcalTxt(mealNutrition(m))} · ok. ${fmtZl(costPerPortion(r, state.plan.settings) * (m.factor || 1))}/porcja ${pricePill(r, state.plan.settings)} ${tastePill(r)}</div>
         ${tags.length ? `<div class="row" style="margin-top:6px">${tags.join('')}</div>` : ''}
@@ -281,11 +286,11 @@ function dayRow(d) {
       let note = '';
       if (batch.cookDay === d) note = d === 0 ? '' : ' <span class="pill accent">ugotuj dziś</span>';
       if (batch.freeze && d + 1 > r.keeps) note = ' <span class="pill">z zamrażarki</span>';
-      items.push(`<li>${{ sniadanie: '☀️', obiad: '🍽️', kolacja: '🌙' }[type]} ${r.name}${note}</li>`);
+      items.push(`<li><span class="meal-tag ${type}">${{ sniadanie: 'Śn', obiad: 'Ob', kolacja: 'Kol' }[type]}</span><span>${r.name}${note}</span></li>`);
     }
   }
   const n = dayNutrition(state.plan.meals, d);
-  return `<div class="day"><div class="d">${dayShort(d)}<small>${dayLabel(d)}</small><small class="kcal">${n.kcal} kcal</small></div><ul>${items.join('')}</ul></div>`;
+  return `<div class="day"><div>${calPage(d)}<div class="kcal" style="text-align:center">${n.kcal} kcal</div></div><ul>${items.join('')}</ul></div>`;
 }
 
 function renderForm() {
@@ -480,7 +485,7 @@ function makePlan() {
 // Shopping
 
 function renderShopping() {
-  if (!state.plan) return emptyState('🛒', 'Najpierw ułóż plan, a lista zakupów zrobi się sama.');
+  if (!state.plan) return emptyState('basket', 'Najpierw ułóż plan, a lista zakupów zrobi się sama.');
   const list = shopping();
   const groups = {};
   for (const it of list.items) (groups[it.cat] ||= []).push(it);
@@ -488,20 +493,24 @@ function renderShopping() {
   const remaining = toBuy.filter((it) => !state.checked[it.id]).reduce((a, it) => a + it.cost, 0);
   const fromFridge = list.items.filter((it) => it.packs === 0);
 
+  const left = toBuy.filter((it) => !state.checked[it.id]).length;
   return `
     <h1>Lista zakupów</h1>
-    <div class="card">
-      <div class="sum"><span>Razem</span><span>${fmtZl(list.total)}</span></div>
-      <div class="muted small">Zostało do kupienia: ${fmtZl(remaining)} · ${toBuy.filter((it) => !state.checked[it.id]).length} z ${toBuy.length} pozycji</div>
-      <div class="muted small" style="margin-top:4px">Odhaczone produkty trafiają do <a href="#lodowka">lodówki</a>.</div>
-      ${PRICES_DATE ? `<div class="muted small" style="margin-top:4px">Ceny z <a href="https://zakupy.biedronka.pl" target="_blank" rel="noopener">Biedronki online</a> z ${new Date(PRICES_DATE).toLocaleDateString('pl-PL')}. Produkty, których tam nie ma, mają ceny szacunkowe.</div>` : ''}
-      <div class="row" style="margin-top:12px"><button class="btn small" data-action="copy-list">Wyślij / skopiuj listę</button></div>
+    <div class="card to-buy">
+      <div><div class="eyebrow">Zostało do kupienia</div><strong>${fmtZl(remaining)}</strong> <span class="muted small">${left} z ${toBuy.length} ${plural(toBuy.length, 'pozycji', 'pozycji', 'pozycji')}</span></div>
+      <button class="btn small" data-action="copy-list">Wyślij / skopiuj</button>
     </div>
-    ${Object.keys(CATEGORIES).filter((c) => groups[c]?.some((it) => it.packs > 0)).map((c) => `
-      <section class="shop-group">
-        <h2>${CATEGORIES[c]}</h2>
-        <div class="list">${groups[c].filter((it) => it.packs > 0).map(shopItem).join('')}</div>
-      </section>`).join('')}
+    <p class="muted small">Odhaczone produkty trafiają do <a href="#lodowka">lodówki</a>.</p>
+    <div class="receipt">
+      <div class="rc-head"><strong>Pudełko</strong>Lista zakupów · ${new Date(state.plan.start).toLocaleDateString('pl-PL')}<br>${daysTxt(state.plan.settings.days)} · ${state.plan.settings.people} os.</div>
+      ${Object.keys(CATEGORIES).filter((c) => groups[c]?.some((it) => it.packs > 0)).map((c) => `
+        <section class="rc-group">
+          <h2>${CATEGORIES[c]}</h2>
+          ${groups[c].filter((it) => it.packs > 0).map(shopItem).join('')}
+        </section>`).join('')}
+      <div class="rc-total"><span>Suma PLN</span><span>${fmtZl(list.total).replace(' zł', '')}</span></div>
+      ${PRICES_DATE ? `<div class="rc-foot">Ceny: <a href="https://zakupy.biedronka.pl" target="_blank" rel="noopener">Biedronka online</a>, ${new Date(PRICES_DATE).toLocaleDateString('pl-PL')}<br>Produkty spoza oferty online: ceny szacunkowe</div>` : ''}
+    </div>
     ${fromFridge.length ? `<section class="shop-group"><h2>Masz już w lodówce</h2><div class="card soft small">${fromFridge.map((it) => `${it.name} (${fmtQty(it.need, it.unit)})`).join(', ')}</div></section>` : ''}
     ${list.pantry.length ? `<section class="shop-group"><h2>Zakładamy, że masz w domu</h2><div class="card soft small">${list.pantry.map((it) => it.unit === 'szczypta' ? it.name : `${it.name} (${fmtQty(it.need, it.unit)})`).join(', ')}</div></section>` : ''}`;
 }
@@ -536,7 +545,7 @@ function listAsText() {
 // Cooking
 
 function renderCooking() {
-  if (!state.plan) return emptyState('🍳', 'Najpierw ułóż plan, a tu pojawi się rozpiska gotowania.');
+  if (!state.plan) return emptyState('pot', 'Najpierw ułóż plan, a tu pojawi się rozpiska gotowania.');
   const p = state.plan;
   return `
     <h1>Gotowanie</h1>
@@ -549,8 +558,8 @@ function renderCooking() {
       const est = Math.round((times[0] + times.slice(1).reduce((a, t) => a + t, 0) * 0.5) / 5) * 5;
       tasks.sort((a, b) => totalTime(b.m) - totalTime(a.m));
       return `
-        <h2>${day === 0 ? 'Gotowanie na start' : 'Kolejne gotowanie'} · ${dayLong(day)}, ${dayLabel(day)}</h2>
-        <p class="muted small">${tasks.length} ${plural(tasks.length, 'danie', 'dania', 'dań')} · ok. ${minTxt(est)}</p>
+        <div class="cook-day">${calPage(day)}<div><h2>${day === 0 ? 'Gotowanie na start' : 'Kolejne gotowanie'}</h2>
+          <div class="muted small">${dayLong(day)}, ${dayLabel(day)} · ${tasks.length} ${plural(tasks.length, 'danie', 'dania', 'dań')} · ok. ${minTxt(est)}</div></div></div>
         ${tasks.map(cookCard).join('')}`;
     }).join('')}`;
 }
@@ -568,10 +577,10 @@ function cookCard({ m, b, bi }) {
   const doneCount = steps.filter((_, i) => state.done[`${key}:${i}`]).length;
   const cooked = state.done[`${key}:all`];
   return `
-    <article class="card">
+    <article class="card box lid-${m.type}">
       <div class="dish">
         <div class="emoji">${r.emoji}</div>
-        <div>
+        <div style="min-width:0">
           <h3>${r.name}</h3>
           <div class="meta">${portionsTxt(b.portions)}${portionSize(m)} · na ${daysRange(b.days)} · ${steps.length ? `${doneCount}/${steps.length} kroków` : `ok. ${minTxt(recipeTime(r))}`}</div>
           ${b.freeze ? `<div class="meta">❄️ ${portionsTxt(b.days.filter((d) => d + 1 > r.keeps).length * state.plan.settings.people)} od razu do zamrażarki</div>` : ''}
@@ -591,23 +600,36 @@ function cookCard({ m, b, bi }) {
 
 function renderFridge() {
   const entries = Object.entries(state.fridge);
+  const row = ([id, q]) => `
+    <div class="fridge-row">
+      <span>${INGREDIENTS[id].name}</span>
+      <span class="qty"><input type="number" inputmode="decimal" min="0" step="any" value="${round2(q)}" data-action="fridge-qty" data-id="${id}" aria-label="Ilość: ${INGREDIENTS[id].name}"><span>${INGREDIENTS[id].unit}</span></span>
+      <button class="icon-btn" data-action="fridge-del" data-id="${id}" aria-label="Usuń ${INGREDIENTS[id].name}">✕</button>
+    </div>`;
+  const frozen = entries.filter(([id]) => INGREDIENTS[id].cat === 'mrozonki');
+  const shelves = Object.keys(CATEGORIES).filter((c) => c !== 'mrozonki')
+    .map((c) => [c, entries.filter(([id]) => INGREDIENTS[id].cat === c)]).filter(([, list]) => list.length);
   return `
     <h1>Lodówka</h1>
     <p class="muted">Wpisz, co już masz. Nowy plan wykorzysta te produkty i nie każe ich kupować drugi raz.</p>
-    <p class="muted small">Produkty odhaczone na liście zakupów trafiają tu same. Gdy w Gotowaniu oznaczysz danie jako ugotowane, jego składniki znikną z lodówki.</p>
-    <form id="fridge-form" class="card">
-      <label for="fridge-q" class="label" style="display:block;font-weight:600;margin-bottom:6px">Dodaj produkt</label>
+    <form id="fridge-form" class="card magnet">
+      <label for="fridge-q" class="label">Dodaj produkt</label>
       <input class="input" id="fridge-q" name="q" type="text" autocomplete="off" autocapitalize="none" enterkeyhint="done"
         placeholder="np. jajka 6, mleko 1 l, ryż 500 g" aria-describedby="fridge-hint">
       <div id="fridge-suggest" class="suggest">${fridgeSuggestions('')}</div>
-      <p id="fridge-hint" class="muted small" style="margin:8px 0 0">Ilość możesz pominąć: dodamy jedno opakowanie i poprawisz ją na liście.</p>
+      <p id="fridge-hint" class="muted small" style="margin:8px 0 0">Ilość możesz pominąć: dodamy jedno opakowanie i poprawisz ją niżej. Odhaczone zakupy trafiają tu same, a ugotowane dania zabierają swoje składniki.</p>
     </form>
-    ${entries.length ? `<div class="list" style="margin-top:16px">${entries.map(([id, q]) => `
-      <div class="fridge-row">
-        <span>${INGREDIENTS[id].name}</span>
-        <span class="qty"><input type="number" inputmode="decimal" min="0" step="any" value="${round2(q)}" data-action="fridge-qty" data-id="${id}" aria-label="Ilość: ${INGREDIENTS[id].name}"><span>${INGREDIENTS[id].unit}</span></span>
-        <button class="icon-btn" data-action="fridge-del" data-id="${id}" aria-label="Usuń ${INGREDIENTS[id].name}">✕</button>
-      </div>`).join('')}</div>` : '<div class="card soft muted" style="margin-top:16px">Lodówka jest pusta.</div>'}
+    <div class="fridge" aria-label="Zawartość lodówki">
+      <section class="compartment freezer">
+        <div class="label-strip"><span>Zamrażarka</span><span class="handle" aria-hidden="true"></span></div>
+        ${frozen.length ? `<div class="shelf">${frozen.map(row).join('')}</div>` : '<div class="fridge-empty">Pusto</div>'}
+      </section>
+      <section class="compartment">
+        <div class="label-strip"><span>Chłodziarka · ${entries.length - frozen.length} ${plural(entries.length - frozen.length, 'produkt', 'produkty', 'produktów')}</span><span class="handle" aria-hidden="true"></span></div>
+        ${shelves.length ? shelves.map(([c, list]) => `<div class="shelf"><h3>${CATEGORIES[c]}</h3>${list.map(row).join('')}</div>`).join('')
+          : '<div class="fridge-empty">Lodówka jest pusta. Dodaj pierwszy produkt powyżej albo odhacz zakupy na liście.</div>'}
+      </section>
+    </div>
     ${entries.length ? '<button class="btn ghost" data-action="fridge-clear">Wyczyść lodówkę</button>' : ''}`;
 }
 
@@ -781,8 +803,12 @@ function recipeBody(r) {
     ${r.steps ? `<ol style="padding-left:20px;margin:10px 0 0">${r.steps.map(([t, m]) => `<li style="margin-bottom:6px">${t} <span class="muted small">(${m} min)</span></li>`).join('')}</ol>` : ''}`;
 }
 
+const ICONS = {
+  basket: '<path d="M4 9h16l-1.6 9.2a2 2 0 0 1-2 1.8H7.6a2 2 0 0 1-2-1.8z"/><path d="M8.5 9 12 4l3.5 5"/>',
+  pot: '<path d="M4 10h16v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z"/><path d="M2 10h20M9 7c0-1 1-1.5 1-2.5M14 7c0-1 1-1.5 1-2.5"/>',
+};
 function emptyState(icon, text) {
-  return `<div class="empty"><div class="big">${icon}</div><p class="muted">${text}</p><a class="btn primary" href="#plan">Ułóż plan</a></div>`;
+  return `<div class="empty"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[icon]}</svg><p class="muted">${text}</p><a class="btn primary" href="#plan">Ułóż plan</a></div>`;
 }
 
 // ── Sheets ──

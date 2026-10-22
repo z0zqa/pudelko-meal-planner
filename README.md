@@ -66,25 +66,12 @@ export const MY_RECIPES = [{
 }];
 ```
 
-<!-- prywatne -->
-## Prywatne źródła przepisów (nie publikować)
+## Źródła przepisów
 
-To repozytorium zawiera też paczki zbudowane z serwisów z przepisami, **wyłącznie na własny użytek**: ok. 710 dań z [aniagotuje.pl](https://aniagotuje.pl), 2559 z [kuchnialidla.pl](https://kuchnialidla.pl), 891 z [kwestiasmaku.com](https://www.kwestiasmaku.com) i 1062 z [centrumrespo.pl](https://centrumrespo.pl). Zapisane są tylko nazwy, składniki z ilościami (do listy zakupów), wartości odżywcze, znaczniki sposobu przygotowania i linki. Treści przepisów nie ma, przy gotowaniu korzystasz z oryginału.
+Oprócz wbudowanych przepisów Pudełko korzysta z ok. 5200 dań z czterech serwisów: [Ania Gotuje](https://aniagotuje.pl) (710), [Kuchnia Lidla](https://kuchnialidla.pl) (2559), [Kwestia Smaku](https://www.kwestiasmaku.com) (891) i [Centrum Respo](https://centrumrespo.pl) (1062). Aplikacja przechowuje tylko nazwy, składniki z ilościami (do listy zakupów), wartości odżywcze i linki. Po przepis zawsze klikasz do oryginału.
 
-- `tools/fetch_*.py`: pobieranie do `data/*-raw.json`, z przerwami zgodnymi z robots.txt (wznawia przerwane pobieranie).
-- `node tools/build-recipes.mjs [ania|lidl|ks|respo]`: przelicza składniki z tekstu („2 ząbki czosnku”, „pół szklanki mleka”) na produkty z cennika i buduje `js/recipes-*.js`. Pomija przepisy z nierozpoznanym składnikiem i same dodatki. `--report` pokazuje nierozpoznane składniki, `--debug="Nazwa"` rozbiór jednego przepisu.
+- `tools/fetch_*.py` pobiera dane do `data/*-raw.json`, z przerwami zgodnymi z robots.txt, i wznawia przerwane pobieranie.
+- `node tools/build-recipes.mjs [ania|lidl|ks|respo]` przelicza składniki z tekstu („2 ząbki czosnku”, „pół szklanki mleka”) na produkty z cennika i buduje `js/recipes-*.js`.
 
-### Publikacja
+Projekt jest prywatny, na własny użytek.
 
-Tej wersji repozytorium **nie publikuj**: dane z serwisów są w plikach i w historii gita. Publiczną kopię składa:
-
-```sh
-sh tools/export-public.sh ../pudelko-public
-```
-
-Skrypt kopiuje pliki bez `data/`, `js/recipes-*.js`, skryptów pobierających i tej sekcji README, a potem zakłada nowe repozytorium bez historii. Zostaje dodać licencję, zrobić commit i wypchnąć kopię do nowego repozytorium na GitHubie.
-<!-- /prywatne -->
-
-## Licencja
-
-Do ustalenia.

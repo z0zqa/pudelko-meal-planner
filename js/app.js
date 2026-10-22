@@ -354,7 +354,7 @@ function renderForm() {
         <p class="muted small" style="margin:6px 0 0">Pomijamy dania z tym składnikiem, także w przyprawach. „Papryka” wyklucza też chili i ostre sosy paprykowe.</p>
       </div>
       <div class="field">
-        <label class="switch"><span>Bez laktozy<br><span class="muted small">mleko bez laktozy lub roślinne, jogurt, śmietana i twaróg bez laktozy</span></span><input type="checkbox" name="lactoseFree" ${s.lactoseFree ? 'checked' : ''}></label>
+        <label class="switch"><span>Bez laktozy<br><span class="muted small">mleko bez laktozy lub roślinne, jogurt, śmietana i twaróg bez laktozy</span></span><input type="checkbox" id="set-lactoseFree" name="lactoseFree" ${s.lactoseFree ? 'checked' : ''}></label>
       </div>
       <div class="field">
         <div class="label">Ile czasu na gotowanie?</div>
@@ -363,8 +363,8 @@ function renderForm() {
       </div>
       <div class="field">
         <div class="label">Czym gotujesz?</div>
-        <label class="switch"><span>Piekarnik</span><input type="checkbox" name="oven" ${s.oven !== false ? 'checked' : ''}></label>
-        <label class="switch"><span>Air fryer<br><span class="muted small">bez piekarnika bierzemy z jego przepisów tylko to, co da się zrobić w air fryerze</span></span><input type="checkbox" name="airfryer" ${s.airfryer ? 'checked' : ''}></label>
+        <label class="switch"><span>Piekarnik</span><input type="checkbox" id="set-oven" name="oven" ${s.oven !== false ? 'checked' : ''}></label>
+        <label class="switch"><span>Air fryer<br><span class="muted small">bez piekarnika bierzemy z jego przepisów tylko to, co da się zrobić w air fryerze</span></span><input type="checkbox" id="set-airfryer" name="airfryer" ${s.airfryer ? 'checked' : ''}></label>
       </div>
       <div class="field">
         <div class="label">Śniadania</div>
@@ -382,7 +382,7 @@ function renderForm() {
         <div class="chips">${srcChip('all', 'Wszystkie')}${LOADED_SITES.map((k) => srcChip(k, SITES[k].label)).join('')}${srcChip('own', 'Wbudowane')}</div>
       </div>` : ''}
       <div class="field">
-        <label class="switch"><span>Bez glutenu</span><input type="checkbox" name="glutenFree" ${s.glutenFree ? 'checked' : ''}></label>
+        <label class="switch"><span>Bez glutenu</span><input type="checkbox" id="set-glutenFree" name="glutenFree" ${s.glutenFree ? 'checked' : ''}></label>
         <p class="muted small" style="margin:4px 0 0">Plan zawsze ma śniadanie, obiad i kolację.</p>
       </div>
       ${tasteNote()}
@@ -557,7 +557,7 @@ function shopItem(it) {
   if (it.leftover >= (it.unit === 'g' || it.unit === 'ml' ? 1 : 0.25)) sub.push(`zostanie ${fmtQty(it.leftover, it.unit)}`);
   return `
     <label class="item ${done ? 'done' : ''}">
-      <input type="checkbox" data-action="check" data-id="${it.id}" ${done ? 'checked' : ''}>
+      <input type="checkbox" id="buy-${it.id}" data-action="check" data-id="${it.id}" ${done ? 'checked' : ''}>
       <div><div class="name">${it.name}</div><div class="sub">${packTxt} · ${sub.join(' · ')}</div>${it.product ? `<div class="sub">w Biedronce: ${it.product}</div>` : ''}</div>
       <div class="price">${fmtZl(it.cost)}</div>
     </label>`;
@@ -622,10 +622,10 @@ function cookCard({ m, b, bi }) {
       </div>
       <ul class="ing-list">${Object.entries(r.ing).map(([id, q]) => `<li>${INGREDIENTS[buyId(id, state.plan.settings)].name}${INGREDIENTS[id].unit === 'szczypta' ? '' : ` — ${fmtQty(scaled(id, q, f), INGREDIENTS[id].unit)}`}</li>`).join('')}</ul>
       <div class="row" style="margin-top:10px">${r.source ? sourceBtn(r) : ''}
-        <label class="row small" style="gap:6px"><input type="checkbox" data-action="cooked" data-k="${key}" data-m="${state.plan.meals.indexOf(m)}" data-b="${bi}" ${cooked ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--ok)"> Ugotowane (zdejmij składniki z lodówki)</label></div>
+        <label class="row small" style="gap:6px"><input type="checkbox" id="cooked-${key}" data-action="cooked" data-k="${key}" data-m="${state.plan.meals.indexOf(m)}" data-b="${bi}" ${cooked ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--ok)"> Ugotowane (zdejmij składniki z lodówki)</label></div>
       <ol class="steps">${steps.map(([txt, min], i) => {
         const done = state.done[`${key}:${i}`];
-        return `<li class="${done ? 'done' : ''}"><input type="checkbox" data-action="step-done" data-k="${key}:${i}" ${done ? 'checked' : ''} aria-label="Krok ${i + 1}"><span>${txt}</span><span class="min">${min} min</span></li>`;
+        return `<li class="${done ? 'done' : ''}"><input type="checkbox" id="step-${key}:${i}" data-action="step-done" data-k="${key}:${i}" ${done ? 'checked' : ''} aria-label="Krok ${i + 1}"><span>${txt}</span><span class="min">${min} min</span></li>`;
       }).join('')}</ol>
     </article>`;
 }
@@ -637,7 +637,7 @@ function renderFridge() {
   const row = ([id, q]) => `
     <div class="fridge-row">
       <span>${INGREDIENTS[id].name}</span>
-      <span class="qty"><input type="number" inputmode="decimal" min="0" step="any" value="${round2(q)}" data-action="fridge-qty" data-id="${id}" aria-label="Ilość: ${INGREDIENTS[id].name}"><span>${INGREDIENTS[id].unit}</span></span>
+      <span class="qty"><input type="number" id="fq-${id}" inputmode="decimal" min="0" step="any" value="${round2(q)}" data-action="fridge-qty" data-id="${id}" aria-label="Ilość: ${INGREDIENTS[id].name}"><span>${INGREDIENTS[id].unit}</span></span>
       <button class="icon-btn" data-action="fridge-del" data-id="${id}" aria-label="Usuń ${INGREDIENTS[id].name}">✕</button>
     </div>`;
   const frozen = entries.filter(([id]) => INGREDIENTS[id].cat === 'mrozonki');

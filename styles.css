@@ -357,7 +357,8 @@ main {
 .item .name { font-weight: 600; }
 .item .sub { font-size: .78rem; color: var(--muted); }
 .item .price { font-family: var(--mono); font-weight: 600; font-size: .9rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.item.done .name, .item.done .price { text-decoration: line-through; color: var(--muted); }
+/* Crossed out exactly when its box is ticked, whatever restored the box */
+.item:has(input:checked) .name, .item:has(input:checked) .price { text-decoration: line-through; color: var(--muted); }
 .rc-total { display: flex; justify-content: space-between; align-items: baseline; margin-top: 8px; padding-top: 12px; border-top: 2px solid var(--text); font-family: var(--mono); }
 .rc-total span:first-child { font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; }
 .rc-total span:last-child { font-size: 1.4rem; font-weight: 700; }

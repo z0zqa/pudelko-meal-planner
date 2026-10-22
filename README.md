@@ -12,7 +12,7 @@ The interface is in Polish, since it works with Polish recipes, products and sto
 
 ## Features
 
-- **A plan that fits the budget.** Breakfast, lunch and supper every day, about 1500 kcal in total. Portions scale to hit the calorie target, and any dish can be rerolled or swapped, with the shopping cost updated instantly.
+- **A plan that fits the budget.** Breakfast, lunch and supper every day, with a daily calorie target of 1200, 1500, 2000, 2200 or 3000 kcal. Portions scale to hit it, and any dish can be rerolled or swapped, with the shopping cost updated instantly.
 - **Shopping list in whole packages.** With prices, grouped by store section, showing what will be left over. Checked items move to the fridge, and the list can be shared or copied.
 - **Fridge.** Type in what you already have and the next plan uses it up. Cooked dishes take their ingredients out of the fridge.
 - **Cooking schedule.** Meal prep laid out: what to cook on day one, what mid-week (when a dish won't keep that long) and what to freeze.
@@ -47,7 +47,7 @@ node tools/build-single.mjs pudelko.html
 | `sw.js` | Offline cache. |
 | `tools/build-single.mjs` | Bundles everything into one HTML file. |
 
-**Planning.** The planner samples a few thousand combinations of dishes that pass the filters. For each one it computes the cost of shopping in whole packages, minus what's already in the fridge, so dishes that share ingredients come out cheaper. It adds penalties for extra cooking sessions during the week and for straying from 1500 kcal, and a bonus for dishes that match your taste. The final plan is drawn from the best plans within budget, so consecutive rerolls differ.
+**Planning.** The planner samples a few thousand combinations of dishes that pass the filters. For each one it computes the cost of shopping in whole packages, minus what's already in the fridge, so dishes that share ingredients come out cheaper. It adds penalties for extra cooking sessions during the week and for straying from the calorie target, and a bonus for dishes that match your taste. The final plan is drawn from the best plans within budget, so consecutive rerolls differ.
 
 **Taste.** Each dish is described by features: products, word stems from its ingredients and name, and dish kind. Liked and rejected dishes build a profile weighted by feature rarity (IDF), including feature pairs, i.e. flavor combinations. The profile shifts the odds of a dish being picked without shutting out new ones.
 

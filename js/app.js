@@ -7,7 +7,8 @@ import {
 // ── State (persisted in localStorage) ──
 const KEY = 'pudelko-v1';
 // Fixed daily calorie target (the user's setting), regardless of previously saved settings.
-const KCAL = 1500;
+// Daily calorie targets to choose from.
+const KCAL_OPTIONS = [1200, 1500, 2000, 2200, 3000];
 const DEFAULT_SETTINGS = { budget: 100, days: 5, people: 1, breakfasts: true, suppers: true, diet: 'all', glutenFree: false, source: 'all', kcal: 1500, avoid: ['papryka'], lactoseFree: true, effort: 'min', oven: false, airfryer: true, price: 'any', breakfastTaste: 'any', supperTaste: 'any' };
 const state = load();
 
@@ -15,10 +16,9 @@ function load() {
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(KEY)) || {}; } catch {}
   return {
-    // Settings from before suppers were added: enable breakfasts and suppers so the plan reaches the full 1500 kcal.
-    // Fixed settings: 1500 kcal and always three meals (breakfast, lunch, supper).
+    // Always three meals (breakfast, lunch, supper); a calorie target outside the options falls back to 1500.
     // A source whose pack is missing (e.g. in the build without private recipes) falls back to "Wszystkie" (All).
-    settings: { ...DEFAULT_SETTINGS, ...saved.settings, kcal: KCAL, breakfasts: true, suppers: true, ...(saved.settings?.source in SITES && !LOADED_SITES.includes(saved.settings.source) ? { source: 'all' } : {}) },
+    settings: { ...DEFAULT_SETTINGS, ...saved.settings, kcal: KCAL_OPTIONS.includes(saved.settings?.kcal) ? saved.settings.kcal : 1500, breakfasts: true, suppers: true, ...(saved.settings?.source in SITES && !LOADED_SITES.includes(saved.settings.source) ? { source: 'all' } : {}) },
     plan: saved.plan || null,
     fridge: saved.fridge || {},
     checked: saved.checked || {},
@@ -133,7 +133,7 @@ function renderPlan() {
       <div class="muted small">Budżet ${fmtZl(s.budget)} · ok. ${fmtZl(list.total / (s.days * s.people))} na osobę dziennie</div>
       ${prefsLine(s)}
       ${nutritionSummary(p)}
-      ${left < 0 ? `<p class="notice" style="margin:12px 0 0">Przy ${KCAL.toLocaleString('pl-PL')} kcal dziennie ten plan kosztuje ok. ${fmtZl(list.total / (s.days * s.people))} na osobę dziennie, więc nie mieści się w budżecie. Podnieś budżet do ok. ${Math.ceil(list.total / 10) * 10} zł albo skróć okres.</p>` : ''}
+      ${left < 0 ? `<p class="notice" style="margin:12px 0 0">Przy ${s.kcal.toLocaleString('pl-PL')} kcal dziennie ten plan kosztuje ok. ${fmtZl(list.total / (s.days * s.people))} na osobę dziennie, więc nie mieści się w budżecie. Podnieś budżet do ok. ${Math.ceil(list.total / 10) * 10} zł albo skróć okres.</p>` : ''}
       <div class="row" style="margin-top:14px">
         <a class="btn primary" href="#zakupy">Lista zakupów</a>
         <a class="btn" href="#gotowanie">Gotowanie</a>
@@ -295,8 +295,9 @@ function renderForm() {
         <label class="switch"><span>Air fryer<br><span class="muted small">bez piekarnika bierzemy z jego przepisów tylko to, co da się zrobić w air fryerze</span></span><input type="checkbox" name="airfryer" ${s.airfryer ? 'checked' : ''}></label>
       </div>
       <div class="field">
-        <div class="label">Kalorie: ${KCAL.toLocaleString('pl-PL')} kcal dziennie</div>
-        <p class="muted small" style="margin:6px 0 0">Porcje dobieramy tak, żeby posiłki z planu dały razem ${KCAL.toLocaleString('pl-PL')} kcal: śniadanie ok. ${Math.round(KCAL * 0.3)}, obiad ok. ${Math.round(KCAL * 0.4)}, kolacja ok. ${Math.round(KCAL * 0.3)}. Gdy przy Twoich filtrach brakuje śniadań lub kolacji, bierzemy je z innych źródeł.</p>
+        <div class="label">Kalorie dziennie</div>
+        <div class="chips">${KCAL_OPTIONS.map((v) => `<button type="button" class="chip" data-action="kcal" data-v="${v}" aria-pressed="${s.kcal === v}">${v.toLocaleString('pl-PL')}</button>`).join('')}</div>
+        <p class="muted small" style="margin:6px 0 0">Porcje dobieramy tak, żeby posiłki z planu dały razem ${s.kcal.toLocaleString('pl-PL')} kcal: śniadanie ok. ${Math.round(s.kcal * 0.3)}, obiad ok. ${Math.round(s.kcal * 0.4)}, kolacja ok. ${Math.round(s.kcal * 0.3)}. Gdy przy Twoich filtrach brakuje śniadań lub kolacji, bierzemy je z innych źródeł.</p>
       </div>
       <div class="field">
         <div class="label">Śniadania</div>
@@ -875,6 +876,7 @@ document.addEventListener('click', async (e) => {
     case 'source': readForm(); s.source = el.dataset.v; break;
     case 'effort': readForm(); s.effort = el.dataset.v; break;
     case 'price': readForm(); s.price = el.dataset.v; break;
+    case 'kcal': readForm(); s.kcal = Number(el.dataset.v); break;
     case 'taste': readForm(); s[el.dataset.k] = el.dataset.v; break;
     case 'qtaste': state.quickTaste = el.dataset.v; state.quickLimit = 30; break;
     case 'rtaste': state.recipeTaste = el.dataset.v; state.recipeLimit = 40; break;

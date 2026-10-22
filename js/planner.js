@@ -203,8 +203,8 @@ export function portionFactor(r, type, s) {
   if (!s?.kcal) return 1;
   const k = nutrition(r).kcal || 1;
   const target = s.kcal * (mealShares(s)[type] || 0);
-  // At most a double serving; when the plan has lunch only, triple, to reach the target.
-  const cap = Object.keys(mealShares(s)).length === 1 ? 3 : 2;
+  // At most a double serving (more for high targets, e.g. 3x at 3000 kcal); triple when the plan has lunch only.
+  const cap = Math.max(Object.keys(mealShares(s)).length === 1 ? 3 : 2, s.kcal / 1000);
   return Math.min(cap, Math.max(0.5, Math.round((target / k) * 4) / 4));
 }
 

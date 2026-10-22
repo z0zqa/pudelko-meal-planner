@@ -1,4 +1,4 @@
-# Pudełko 🥡
+# Pudełko meal planner 🥡
 
 **Budget meal planner: shopping list, calories and cooking plan in one place.**
 

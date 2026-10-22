@@ -1,7 +1,7 @@
-"""Pobiera z centrumrespo.pl dania główne: nazwę, porcje, składniki (w gramach), wartości odżywcze
-na porcję, czas, oznaczenia diet, link oraz znaczniki sposobu przygotowania (bez tekstu przepisu).
+"""Fetches main dishes from centrumrespo.pl: name, servings, ingredients (in grams), nutrition
+per serving, time, diet labels, link and cooking-method flags (without the recipe text).
 
-Uruchom: python3 tools/fetch_respo.py  (wznawia przerwane pobieranie)
+Run: python3 tools/fetch_respo.py  (resumes an interrupted fetch)
 """
 import concurrent.futures as cf
 import html
@@ -116,10 +116,10 @@ def main():
             time.sleep(DELAY)
         data['catsDone'].append(cat)
         save()
-        print(f'{cat}: adresów {len(data["urls"])}', flush=True)
+        print(f'{cat}: {len(data["urls"])} URLs', flush=True)
 
     todo = [u for u in data['urls'] if u not in data['recipes'] and u not in data['skipped']]
-    print(f'Do pobrania: {len(todo)}', flush=True)
+    print(f'To fetch: {len(todo)}', flush=True)
 
     def work(u):
         h = get(u)
@@ -132,7 +132,7 @@ def main():
             try:
                 u, h = fut.result()
             except Exception as e:
-                print('błąd:', e, file=sys.stderr)
+                print('error:', e, file=sys.stderr)
                 continue
             info = data['urls'][u]
             r = parse(u, h, info['kind'], info['cat']) if h else None
@@ -145,7 +145,7 @@ def main():
                 save()
                 print(f'{n}/{len(todo)}', flush=True)
     save()
-    print(f'Gotowe. Przepisy: {len(data["recipes"])}')
+    print(f'Done. Recipes: {len(data["recipes"])}')
 
 
 if __name__ == '__main__':

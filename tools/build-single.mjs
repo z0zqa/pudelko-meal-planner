@@ -1,16 +1,16 @@
-// Składa aplikację w jeden plik HTML (CSS, ikona i wszystkie moduły JS w środku),
-// np. do otwarcia na telefonie bez serwera. Uruchom: node tools/build-single.mjs wynik.html
+// Bundles the app into a single HTML file (CSS, icon and all JS modules inlined),
+// e.g. to open on a phone without a server. Run: node tools/build-single.mjs output.html
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const read = (f) => readFileSync(ROOT + f, 'utf8');
 const out = process.argv[2] || `${ROOT}pudelko.html`;
 
-// Paczki przepisów są opcjonalne: wchodzą tylko te, które zbudowano lokalnie.
+// Recipe packs are optional: only those built locally are included.
 const packs = ['ania', 'lidl', 'ks', 'respo'].map((s) => `js/recipes-${s}.js`).filter((f) => existsSync(ROOT + f));
 const packNames = packs.map((f) => read(f).match(/^export const (\w+)/m)[1]);
 
-// Moduły w kolejności zależności; importy i eksporty znikają, bo wszystko trafia do jednego skryptu.
+// Modules in dependency order; imports and exports are stripped since everything goes into one script.
 const js = ['js/data.js', ...packs, 'js/planner.js', 'js/app.js']
   .map((f) => `// ── ${f} ──\n` + read(f)
     .replace(/^import[\s\S]*?from\s+'[^']+';\n/gm, '')
@@ -18,10 +18,10 @@ const js = ['js/data.js', ...packs, 'js/planner.js', 'js/app.js']
     .replace(/^export (const|function|let)/gm, '$1'))
   .join('\n');
 
-// Wszystkie moduły trafiają do jednego zakresu, więc ta sama nazwa w dwóch plikach zepsułaby stronę.
+// All modules share one scope, so the same name in two files would break the page.
 const names = [...js.matchAll(/^(?:const|function|let) ([A-Za-z_]\w*)/gm)].map((m) => m[1]);
 const dups = names.filter((n, i) => names.indexOf(n) !== i);
-if (dups.length) throw new Error(`Ta sama nazwa w kilku modułach: ${[...new Set(dups)].join(', ')}`);
+if (dups.length) throw new Error(`Same name in several modules: ${[...new Set(dups)].join(', ')}`);
 
 const icon = `data:image/svg+xml;base64,${Buffer.from(read('icon.svg')).toString('base64')}`;
 const html = read('index.html');
@@ -42,4 +42,4 @@ ${body.trim()}
 ${js.replace(/<\/script>/g, '<\\/script>')}
 </script>
 `);
-console.log(`Zapisano ${out} (${Math.round(readFileSync(out).length / 1024)} KB, paczki: ${packNames.join(', ') || 'brak'})`);
+console.log(`Wrote ${out} (${Math.round(readFileSync(out).length / 1024)} KB, packs: ${packNames.join(', ') || 'none'})`);

@@ -1,19 +1,19 @@
-// Zamienia pobrane przepisy (data/*-raw.json) na pliki js/recipes-*.js w formacie aplikacji.
-// Składniki z tekstu („2 ząbki czosnku”, „pół szklanki mleka”) są mapowane na produkty z cennika
-// w js/data.js. Przepisy z nierozpoznanym składnikiem są pomijane, żeby koszt planu był rzetelny.
+// Converts fetched recipes (data/*-raw.json) into js/recipes-*.js files in the app's format.
+// Ingredients written as text („2 ząbki czosnku”, „pół szklanki mleka”) are mapped to products from
+// the price list in js/data.js. Recipes with an unrecognised ingredient are skipped so plan costs stay accurate.
 //
-// Uruchom: node tools/build-recipes.mjs [ania|lidl] [--report] [--debug="Nazwa"]
+// Run: node tools/build-recipes.mjs [ania|lidl] [--report] [--debug="Nazwa"]
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { INGREDIENTS } from '../js/data.js';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 
-// W wzorcach poniżej \w i \b działają też dla polskich liter (patrzy funkcja pl()).
+// In the patterns below \w and \b also match Polish letters (handled by pl()).
 const pl = (re) => new RegExp(re.source
   .replaceAll('\\w', '\\p{L}')
   .replaceAll('\\b', '(?:(?<=\\p{L}|\\d)(?![\\p{L}\\d])|(?<![\\p{L}\\d])(?=\\p{L}|\\d))'), 'u');
 
-// ── Słownik: wzorzec (na nazwie składnika, małe litery) → id produktu. Kolejność ma znaczenie. ──
+// ── Dictionary: pattern (on the lowercased ingredient name) → product id. Order matters. ──
 const PANTRY = pl(/\b(sól|soli|solą|pieprz\w*|przypraw\w*|majeran\w*|oregano|tymian\w*|bazyli\w* suszon\w*|suszon\w* bazyli\w*|kmin\w*|kumin\w*|curry|kurkum\w*|cynamon\w*|gałk\w* muszkat\w*|liś\w* laurow\w*|liści\w* laurow\w*|ziel\w* angielsk\w*|ziół|zioła prowansalsk\w*|chili|płatki chili|papryk\w* (słodk|wędzon|ostr|mielon|chili)\w*|(słodk|wędzon|ostr|mielon)\w* papryk\w*|czosn\w* (granulowan|suszon)\w*|imbir\w* mielon\w*|kolendr\w* mielon\w*|lubczyk\w*|rozmaryn\w*|estragon\w*|cząber\w*|jałow\w*|goździk\w*|kardamon\w*|wanili\w*|woda|wody|wodą|wrzątk\w*|lód|kostk\w* lodu|ocet\w*|octu|olej\w*|oliw(a|y|ą|ę)\b|oliwy z oliwek|bulion\w*|wywar\w*|rosoł\w*|kostk\w* rosoł\w*|mąk\w* ziemniaczan\w*|skrobi\w*|proszk\w* do pieczenia|sod\w* oczyszczon\w*|cukr\w* (puder|wanili|trzcin)\w*|cukier|cukru|ksylitol\w*|erytrytol\w*|sos\w* worcester\w*|tabasco|sriracha|natka? ?do dekoracji|żelatyn\w*|sezam\w* do posypania|maggi|vegeta|sos\w* rybn\w*|pasta curry|harissa|erytr\w*|eryt\w*|odżywk\w*|odzywk\w*|zioł\w*|ziół|anyż\w*|papryczk\w*|chill?i\w*|listk\w* laurow\w*|liste\w* laurow\w*|prosz[e]?k\w* do pieczenia|sod\w*|aromat\w*|smalc\w* do smażenia|łoj\w*|łój|tłuszcz\w*|szałwi\w*|tymiank\w*|estragon\w*|lubczyk\w*)\b/);
 
 const MAP_SRC = [
@@ -138,7 +138,7 @@ const MAP_SRC = [
 ];
 const MAP = MAP_SRC.map(([re, id]) => [pl(re), id]);
 
-// Sztuki/miary → gramy (ml ≈ g). Szklanka bierze gPerCup produktu, jeśli jest.
+// Pieces/measures → grams (ml ≈ g). A cup uses the product's gPerCup if it has one.
 const MEASURES_SRC = [
   [/\bcm\b/, 5], [/\bliś\w*|\blist\w*/, 10],
   [/łyżecz\w*/, 5], [/łyż\w*/, 15], [/szklan\w*/, 'cup'], [/garś\w*|garst\w*/, 30], [/ząb\w*/, 5],
@@ -175,11 +175,11 @@ function firstNumber(s) {
   return null;
 }
 
-// Zwraca ilość w jednostce produktu albo null.
+// Returns the quantity in the product's unit, or null.
 function quantity(line, id) {
   const ing = INGREDIENTS[id];
   const toUnit = (g) => (ing.unit === 'g' || ing.unit === 'ml' ? g : g / (ing.gPerSzt || ing.pack));
-  // Najpewniejsze są gramy/mililitry, gdziekolwiek w opisie („4 ząbki - około 20 g”).
+  // Grams/millilitres are the most reliable, wherever they appear („4 ząbki - około 20 g”).
   const gm = line.match(/(\d+(?:[.,]\d+)?)(?:\s*-\s*(\d+(?:[.,]\d+)?))?\s*(kg|dag|g|gram\p{L}*|ml|l|litr\p{L}*|mililitr\p{L}*)(?!\p{L})/u);
   if (gm) {
     let n = parseFloat(gm[1].replace(',', '.'));
@@ -192,10 +192,10 @@ function quantity(line, id) {
   for (const [re, val] of MEASURES) {
     const mm = re.exec(line);
     if (!mm) continue;
-    // Liczba tuż przed miarą („2 łyżki”, „pół szklanki”), a nie pierwsza w linii.
+    // The number right before the measure („2 łyżki”, „pół szklanki”), not the first one in the line.
     const before = line.slice(Math.max(0, mm.index - 25), mm.index).split(/ - |, /).pop();
     const near = lastNumber(before);
-    // Liczba musi stać przy mierze: „2 płaskie łyżki” tak, „6 połówek brzoskwiń z puszki” nie.
+    // The number must sit next to the measure: „2 płaskie łyżki” yes, „6 połówek brzoskwiń z puszki” no.
     const gap = near ? before.slice(near.index + near.len).trim().split(/\s+/).filter(Boolean).length : 0;
     const n = near && gap <= 2 ? near.n : 1;
     if (val === 0) return 0;
@@ -203,26 +203,26 @@ function quantity(line, id) {
     if (val === 'szt') return ing.unit === 'g' || ing.unit === 'ml' ? n * (ing.gPerSzt || 100) : n;
     if (val === 'half') return ing.unit === 'szt' || ing.unit === 'główka' ? n * 0.5 : n * (ing.gPerSzt || 100) * 0.5;
     if (id === 'czosnek' && /ząb/.test(line)) return n * 0.1;
-    if (id === 'cytryna' || id === 'limonka') return n * (val === 'cup' ? 250 : val) / 45; // ~45 ml soku z owocu
+    if (id === 'cytryna' || id === 'limonka') return n * (val === 'cup' ? 250 : val) / 45; // ~45 ml of juice per fruit
     const g = val === 'cup' ? n * (ing.gPerCup || 250) : n * val;
     return toUnit(g);
   }
   if (num) {
-    // „200 dojrzałych pomidorów” — duża liczba bez jednostki to gramy.
+    // „200 dojrzałych pomidorów” — a large number without a unit means grams.
     if (num.n >= 20) return toUnit(num.n);
     return ing.unit === 'g' || ing.unit === 'ml' ? num.n * (ing.gPerSzt || 100) : num.n;
   }
-  // Bez ilości: sztuka albo ćwierć opakowania.
+  // No quantity: one piece or a quarter of a pack.
   return ing.unit === 'g' || ing.unit === 'ml' ? Math.min(ing.pack * 0.25, ing.gPerSzt || 1e9) : 1;
 }
 
 const OPTIONAL = pl(/można pominąć|opcjonaln\w*|do dekoracji|do podania|do posypania|do skropienia|dla dekoracji|ewentualnie|jeśli lubisz|według uznania|do smaku/);
 
-// Produkty „z domu” nie trafiają na listę zakupów, ale liczą się do wagi dania i kalorii (olej!).
+// Pantry staples don't go on the shopping list, but they count towards dish weight and calories (oil!).
 function pantryItem(text, line) {
   const kcal100 = /olej|oliw|masł|smalc|łoj|łój|tłuszcz/.test(text) ? 880 : /cukier|cukr|miód|miod|syrop|ksylitol/.test(text) ? 400 : /skrobi|mąk/.test(text) ? 350 : 0;
   let grams = genericGrams(line);
-  // Olej do smażenia (często „1 litr”) w większości zostaje na patelni.
+  // Frying oil (often „1 litr”) mostly stays in the pan.
   if (kcal100 === 880 && /smaż|głębok|frytur/.test(line)) grams = Math.min(grams, 40);
   return { pantry: true, grams, kcal100 };
 }
@@ -245,19 +245,19 @@ function genericGrams(line) {
 
 function classify(item, groupName, qtyFirst = false) {
   const name = item.name.toLowerCase();
-  // Lidl podaje „ząbek czosnku - 9 szt.”: liczba musi stać przed miarą, więc ilość idzie na początek.
+  // Lidl writes „ząbek czosnku - 9 szt.”: the number must come before the measure, so the quantity goes first.
   const line = qtyFirst ? `${item.qty.toLowerCase()} ${name}` : `${name} ${item.qty.toLowerCase()}`;
   if (OPTIONAL.test(line) || /dekorac|do podania|opcjonal/i.test(groupName)) return { optional: true };
-  // Nagłówki sekcji wpisane jako składnik („0 g dressing:”, „sos:”).
+  // Section headings entered as ingredients („0 g dressing:”, „sos:”).
   if (/:\s*$/.test(name)) return { optional: true };
   const full = name.replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ');
-  // Najpierw pierwszy wariant („cebula lub szalotka” → cebula), a jeśli nic nie pasuje — cała nazwa.
+  // Try the first variant first („cebula lub szalotka” → cebula); if nothing matches, the whole name.
   const main = full.split(/ - | lub | albo |, np\.| np\./)[0];
   for (const text of [main, full.split(/ - /)[0], full]) {
     for (const [re, id] of MAP) {
       const m = re.exec(text);
       if (!m) continue;
-      // „papryka słodka mielona”, „sok z cytryny” itd.: przyprawa wygrywa, jeśli stoi wcześniej.
+      // „papryka słodka mielona”, „sok z cytryny” etc.: the spice wins if it comes first.
       const p = PANTRY.exec(text);
       if (p && !/(cytryn|limon)/.test(text) && p.index <= m.index) return pantryItem(text, line);
       return { id, qty: quantity(line, id) };
@@ -267,11 +267,11 @@ function classify(item, groupName, qtyFirst = false) {
   return { unknown: main.trim() };
 }
 
-// ── Typ dania, porcje, trwałość ──
+// ── Dish type, servings, shelf life ──
 function dishType(r) {
   const kw = (r.keywords || '').toLowerCase();
   const c = r.crumbs[0] || '';
-  // Surówki to dodatki, a przekąski (poza jajecznymi) nie są posiłkiem.
+  // Slaws are side dishes, and snacks (except egg ones) are not meals.
   if (r.crumbs.some((x) => /surowki$|przekaski\/(?!z-jajkami)/.test(x)) || /^surówk/i.test(r.name)) return null;
   if (c.startsWith('salatki')) return /śniadani|kolacj/.test(kw) ? 'sniadanie' : null;
   if (/^(dania-miesne|dania-rybne|zupy)/.test(c)) return 'obiad';
@@ -329,7 +329,7 @@ function minutesIn(step) {
   return h ? Math.min(240, Math.round(parseFloat(h[1].replace(',', '.')) * 60)) : null;
 }
 
-// Czy to pełny posiłek, a nie dodatek (surówka, frytki, bulion)? Wymagamy składnika „głównego”.
+// Is this a full meal rather than a side (slaw, fries, stock)? We require a „main” ingredient.
 const SIDE = /^(frytki|ziemniaki|młode ziemniaki|puree|purée|buraczki|marchew|marchewka|pieczona marchew|mizeria|bulion|wywar|zakwas|sos\b|kapusta zasmażana|fasolka szparagowa|kluski śląskie|ćwikła|kopytka|pieczone ziemniaki|grzanki|dip|pesto|hummus|marynat|panierk|dressing|farsz|ciasto na|baza do)|do obiadu|purée|puree|(^|\s)(chleb|chlebek|chlebki|bułka|bułki|bułeczki|brioszki|brioszka|rogaliki|drożdżówki)(\s|$)|obwarzan|^surówk|koncentrat|^bulion|^rosół domowy$|tapenad|colesław|coleslaw|^sałatka colesław|^granola|^musli|^masło |^twarożek do|^serek do|z lodami|kruszonk|na słodko|^deser|pesto|smalec|smalczyk|^jak zrobić|^sos |sos do |pasta do |masło ziołowe|^ketchup|^majonez|^domowy ketchup|^dip |^hummus|^pasztet|^konfitur|^dżem|dulce de leche|krem karmel|^deser|^mus |^lody|^budyń|^kisiel|^galaretk|^tiramisu|^panna cotta|^sorbet|^mizeri|chałk|^ciasto|^babka|^sernik|^tart(a|y) na słodko|bagietk|^precl|^precel|^rogal|focacci|ciabatt|bajgl|^podpłomyk|^grzank|^tost\w* z masłem|na ciepło do|dodatek|do smarowania|do karkówki|do grilla|marynat/i;
 const MAIN = {
   obiad: { any: ['jajka', 'ser', 'twarog', 'feta', 'mozzarella', 'parmezan', 'tofu', 'fasola', 'fasolaBiala', 'ciecierzyca', 'soczewica', 'makaron', 'spaghetti', 'ryz', 'kasza', 'kaszaJaglana', 'peczak', 'kuskus', 'bulgur', 'tortilla', 'ciastoFrancuskie', 'bulki', 'chleb', 'serekWiejski'], min: { maka: 150, ziemniaki: 500, groszek: 300 } },
@@ -341,8 +341,8 @@ function isMeal(name, ing, type) {
   return Object.keys(ing).some((k) => INGREDIENTS[k].cat === 'mieso' || m.any.includes(k) || (m.min[k] && ing[k] >= m.min[k]));
 }
 
-// Kalorie na porcję: wartości Ani na 100 g × waga dania / porcje. Gdy waga z opisu jest niepewna
-// (wynik ponad 2× różny od wyliczenia ze składników), bierzemy wyliczenie ze składników.
+// Calories per serving: Ania's per-100 g values × dish weight / servings. When the stated weight is doubtful
+// (result differs by more than 2× from the ingredient-based estimate), we use the ingredient-based estimate.
 function portionNutrition(r, ing, mass, pantryMass, pantryKcal, serves) {
   let kcal = pantryKcal, protein = 0;
   for (const [k, q] of Object.entries(ing)) {
@@ -365,11 +365,11 @@ function portionNutrition(r, ing, mass, pantryMass, pantryKcal, serves) {
   return { kcal: Math.round(out.kcal), protein: Math.round(out.protein) };
 }
 
-// Tekst ze strony trafia do HTML aplikacji — bez znaczników.
+// Text from the site ends up in the app's HTML — strip tags.
 const clean = (t) => String(t ?? '').replace(/[<>]/g, '').replace(/&/g, '&amp;').replace(/\s+/g, ' ').trim();
 
-// Słowa ze wszystkich składników (także przypraw), bez polskich znaków — do filtra „Nie jem”
-// (np. „papryka słodka” w przyprawach) i do wyszukiwarki. Pomijamy słowa, które nic nie mówią.
+// Words from all ingredients (spices too), without Polish diacritics — for the „Nie jem” filter
+// (e.g. „papryka słodka” among spices) and for search. Uninformative words are skipped.
 const STOP = new Set('sol soli pieprz pieprzu woda wody olej oleju oliwa oliwy swieza swiezy swieze swiezej suszona suszony suszone mielona mielony mielone duza duzy duze mala maly male sredni srednia srednie sredniej wielkosci lub oraz albo dowolny dowolna ulubiony ulubiona ulubionej opcjonalnie posiekana posiekany startej starty tarty tarta drobno gruba dojrzale dojrzaly czerwona czerwony biala bialy zielona zielony szczypta lyzka lyzki lyzeczka lyzeczki szklanka szklanki sztuka sztuki okolo bardzo przyprawy przypraw smaku dekoracji podania'.split(' '));
 const normWord = (t) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ł/g, 'l');
 function ingredientWords(r) {
@@ -380,8 +380,8 @@ function ingredientWords(r) {
   return [...words].join(' ');
 }
 
-// ── Konwersja ──
-// Każde źródło ma własne dane o kategorii, porcjach i wartościach odżywczych.
+// ── Conversion ──
+// Each source has its own data on category, servings and nutrition.
 const lidlType = (r) => {
   const c = r.crumbs.join(' ');
   if (/^(zupy|dania-glowne|fast-food|grill|dania-wegetarianskie|dania-weganskie)/.test(r.crumbs[0] || '')) return 'obiad';
@@ -396,8 +396,8 @@ const lidlNutrition = (r, calc) => {
   }
   return { kcal: Math.round(calc.kcal), protein: Math.round(calc.protein) };
 };
-// Lidl nie oznacza diet, więc wyliczamy je ze składników (bez „bez glutenu” — tego nie da się
-// stwierdzić pewnie z samej listy).
+// Lidl doesn't label diets, so we derive them from ingredients (except gluten-free — that can't
+// be determined reliably from the list alone).
 function dietFromIngredients(ing, lines) {
   const ids = Object.keys(ing);
   const meat = ids.some((k) => INGREDIENTS[k].cat === 'mieso') || /bulion (drobiow|wołow|mięs)|rosół|smalec|boczek|żelatyn/.test(lines);
@@ -423,10 +423,10 @@ const SOURCES = {
   ks: {
     raw: 'data/kwestiasmaku-raw.json', out: 'js/recipes-ks.js', name: 'KS_RECIPES', prefix: 'ks-', site: 'ks',
     note: 'kwestiasmaku.com', qtyFirst: false,
-    // Rodzaj posiłku wynika z kategorii, z której pochodzi przepis.
+    // The meal type comes from the category the recipe was fetched from.
     type: (r) => r.tags[0],
     servings,
-    // Strona nie podaje wartości odżywczych, więc liczymy je ze składników.
+    // The site doesn't give nutrition, so we calculate it from ingredients.
     nutrition: (r, ing, mass, pm, pk, serves) => { const c = calcNutrition(ing, pk, serves); return { kcal: Math.round(c.kcal), protein: Math.round(c.protein) }; },
     tags: (r, ing) => dietFromIngredients(ing, r.ingredients.flatMap((g) => g.items.map((i) => i.name.toLowerCase())).join(' | ')),
   },
@@ -434,7 +434,7 @@ const SOURCES = {
     raw: 'data/respo-raw.json', out: 'js/recipes-respo.js', name: 'RESPO_RECIPES', prefix: 'rs-', site: 'respo',
     note: 'centrumrespo.pl', qtyFirst: false,
     type: (r) => r.tags[0],
-    // Respo podaje dokładną liczbę porcji i wartości na porcję, więc porcji nie przeliczamy.
+    // Respo gives the exact number of servings and per-serving values, so servings aren't recalculated.
     exactServes: true,
     servings: (r) => Math.max(1, Math.min(12, parseInt(r.yield) || 1)),
     nutrition: (r, ing, mass, pm, pk, serves) => lidlNutrition(r, calcNutrition(ing, pk, serves)),
@@ -466,9 +466,9 @@ function calcNutrition(ing, pantryKcal, serves) {
   return { kcal: kcal / serves, protein: protein / serves };
 }
 
-// Znaczniki sposobu przygotowania z tools/fetch_flags.py (bez tekstu przepisów).
+// Cooking-method flags from tools/fetch_flags.py (without recipe text).
 const FLAGS = existsSync(`${ROOT}data/flags.json`) ? JSON.parse(readFileSync(`${ROOT}data/flags.json`, 'utf8')) : {};
-// Z piekarnika do air fryera przenoszą się dania pieczone w kawałkach; zapiekanki, tarty i ciasta nie.
+// Dishes baked in pieces carry over from oven to air fryer; casseroles, tarts and cakes don't.
 const NOT_AF = /zapiekank|zapiekan|tart(a|y|ę)\b|quiche|lasagn|lazani|cannelloni|musak|gratin|ciast|keks|babk|sernik|chleb|bułk|pizz|strudel|clafoutis|suflet|pasztet|rolad|wieniec|calzone|kulebiak|pieróg|pierog|biszkopt|placek|frittat|moussaka|pieczeń|indyk w całości|kaczka w całości|gęś|kurczak w całości|cały kurczak/;
 function methodFlags(r) {
   const f = FLAGS[r.url] || r.flags;
@@ -488,7 +488,7 @@ const DEBUG = process.argv.find((x) => x.startsWith('--debug='))?.slice(8);
 
 for (const key of which.length ? which : Object.keys(SOURCES)) {
   const S = SOURCES[key];
-  if (!existsSync(ROOT + S.raw)) { console.log(`${key}: brak ${S.raw}, pomijam`); continue; }
+  if (!existsSync(ROOT + S.raw)) { console.log(`${key}: ${S.raw} missing, skipping`); continue; }
   const raw = JSON.parse(readFileSync(ROOT + S.raw, 'utf8'));
 
   if (DEBUG) {
@@ -524,8 +524,8 @@ for (const key of which.length ? which : Object.keys(SOURCES)) {
     if (!isMeal(r.name.trim(), ing, type)) { reasons.side++; continue; }
     for (const k of Object.keys(ing)) ing[k] = Math.round(ing[k] * 100) / 100;
 
-    // Porcje z opisu bywają zawyżone („24 placki”, „pizza 26 cm”) — trzymamy je w rozsądnym
-    // przedziale według łącznej wagi składników.
+    // Stated servings can be inflated („24 placki”, „pizza 26 cm”) — keep them within a sensible
+    // range based on the total ingredient weight.
     const mass = Object.entries(ing).reduce((a, [k, q]) => {
       const I = INGREDIENTS[k];
       return a + (I.unit === 'g' || I.unit === 'ml' ? q : q * (I.gPerSzt || 100));
@@ -534,7 +534,7 @@ for (const key of which.length ? which : Object.keys(SOURCES)) {
     const serves = S.exactServes ? S.servings(r) : Math.max(type === 'obiad' ? 2 : 1, Math.min(12, Math.round(Math.min(Math.max(S.servings(r, type), mass / hi), mass / lo))));
     const [keeps, freezes] = shelfLife(r, type);
     const nutr = S.nutrition(r, ing, mass, pantryMass, pantryKcal, serves);
-    // Ponad 1800 kcal na porcję to prawie zawsze błąd w danych (np. litr tłuszczu do konfitowania).
+    // Over 1800 kcal per serving is almost always a data error (e.g. a litre of fat for confit).
     if (nutr.kcal > 1800) { reasons.empty++; continue; }
     const lower = r.name.toLowerCase();
     out.push({
@@ -556,21 +556,21 @@ for (const key of which.length ? which : Object.keys(SOURCES)) {
     });
   }
   out.sort((a, b) => a.name.localeCompare(b.name, 'pl'));
-  // Każdy przepis musi mieć własne id, inaczej aplikacja pomyli przepisy.
+  // Every recipe needs a unique id, otherwise the app mixes recipes up.
   const ids = new Set();
   for (const r of out) {
-    if (ids.has(r.id) || r.id === S.prefix) throw new Error(`${key}: powtórzone albo puste id przepisu: ${r.id} (${r.source})`);
+    if (ids.has(r.id) || r.id === S.prefix) throw new Error(`${key}: duplicate or empty recipe id: ${r.id} (${r.source})`);
     ids.add(r.id);
   }
   writeFileSync(ROOT + S.out,
-    `// Wygenerowane przez tools/build-recipes.mjs z ${S.note}: nazwa, składniki, wartości odżywcze i link.\n` +
-    `// Tylko na własny użytek — nie publikuj.\nexport const ${S.name} = ${JSON.stringify(out)};\n`);
+    `// Generated by tools/build-recipes.mjs from ${S.note}: name, ingredients, nutrition and link.\n` +
+    `// For personal use only — do not publish.\nexport const ${S.name} = ${JSON.stringify(out)};\n`);
 
   const total = Object.keys(raw.recipes).length;
-  console.log(`${key}: pobrane ${total} · zaimportowane ${out.length} (obiady ${out.filter((r) => r.type === 'obiad').length}, śniadania ${out.filter((r) => r.type === 'sniadanie').length})`);
-  console.log(`  pominięte: nie obiad/śniadanie ${reasons.type}, nierozpoznany składnik ${reasons.unknown}, za mało danych ${reasons.empty}, dodatki ${reasons.side}`);
+  console.log(`${key}: fetched ${total} · imported ${out.length} (dinners ${out.filter((r) => r.type === 'obiad').length}, breakfasts ${out.filter((r) => r.type === 'sniadanie').length})`);
+  console.log(`  skipped: not dinner/breakfast ${reasons.type}, unrecognised ingredient ${reasons.unknown}, too little data ${reasons.empty}, side dishes ${reasons.side}`);
   if (process.argv.includes('--report')) {
-    console.log('  najczęstsze nierozpoznane składniki:');
+    console.log('  most common unrecognised ingredients:');
     for (const [k, v] of [...unknown].sort((a, b) => b[1] - a[1]).slice(0, 80)) console.log(String(v).padStart(6), k);
   }
 }

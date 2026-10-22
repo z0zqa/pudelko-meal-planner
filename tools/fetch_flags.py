@@ -1,8 +1,8 @@
-"""Dla zaimportowanych przepisów (js/recipes-*.js) sprawdza w oryginale sposób przygotowania
-i zapisuje same znaczniki: piekarnik, air fryer, patelnia, garnek, bez gotowania, liczba kroków.
-Tekstu przepisów nie zapisuje. Wynik: data/flags.json (wznawia przerwane pobieranie).
+"""For imported recipes (js/recipes-*.js), checks the cooking method in the original and saves
+only flags: oven, air fryer, pan, pot, no-cook, number of steps.
+Recipe text is not saved. Output: data/flags.json (resumes an interrupted fetch).
 
-Uruchom: python3 tools/fetch_flags.py
+Run: python3 tools/fetch_flags.py
 """
 import concurrent.futures as cf
 import html
@@ -31,7 +31,7 @@ def get(url):
 
 
 def instructions(url, h):
-    """Zwraca tekst kroków (tylko do analizy w pamięci) i ich liczbę."""
+    """Returns the steps text (for in-memory analysis only) and the number of steps."""
     if 'aniagotuje.pl' in url:
         i = h.find('itemprop="recipeInstructions"')
         j = h.find('Najczęściej zadawane pytania', i)
@@ -62,14 +62,14 @@ def flags(text, steps):
 
 def main():
     urls = []
-    # Kwestia Smaku ma znaczniki od razu w pliku z przepisami (tools/fetch_kwestiasmaku.py).
+    # Kwestia Smaku already has flags in its recipe file (tools/fetch_kwestiasmaku.py).
     for f in ('js/recipes-ania.js', 'js/recipes-lidl.js'):
         p = ROOT / f
         if p.exists():
             urls += re.findall(r'"source":"([^"]+)"', p.read_text())
     data = json.loads(OUT.read_text()) if OUT.exists() else {}
     todo = [u for u in dict.fromkeys(urls) if u not in data]
-    print(f'{len(urls)} przepisów, do sprawdzenia: {len(todo)}', flush=True)
+    print(f'{len(urls)} recipes, to check: {len(todo)}', flush=True)
 
     def work(u):
         h = get(u)
@@ -83,14 +83,14 @@ def main():
                 u, h = fut.result()
                 data[u] = flags(*instructions(u, h))
             except Exception as e:
-                print('błąd:', e, file=sys.stderr)
+                print('error:', e, file=sys.stderr)
                 continue
             n += 1
             if n % 200 == 0:
                 OUT.write_text(json.dumps(data))
                 print(f'{n}/{len(todo)}', flush=True)
     OUT.write_text(json.dumps(data))
-    print(f'Gotowe: {len(data)} przepisów ze znacznikami')
+    print(f'Done: {len(data)} recipes with flags')
 
 
 if __name__ == '__main__':

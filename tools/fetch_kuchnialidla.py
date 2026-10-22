@@ -1,8 +1,8 @@
-"""Pobiera z kuchnialidla.pl dane potrzebne planerowi: nazwę, kategorię, porcje, składniki,
-wartości odżywcze i link. Treści przepisów (kroki, opisy, zdjęcia) zostają na stronie Lidla.
+"""Fetches from kuchnialidla.pl the data the planner needs: name, category, servings, ingredients,
+nutrition and link. Recipe content (steps, descriptions, photos) stays on Lidl's site.
 
-Uruchom: python3 tools/fetch_kuchnialidla.py  (wznawia przerwane pobieranie)
-Wynik: data/kuchnialidla-raw.json w tym samym formacie co data/aniagotuje-raw.json.
+Run: python3 tools/fetch_kuchnialidla.py  (resumes an interrupted fetch)
+Output: data/kuchnialidla-raw.json in the same format as data/aniagotuje-raw.json.
 """
 import concurrent.futures as cf
 import html
@@ -18,7 +18,7 @@ UA = 'Mozilla/5.0 (prywatny planer posilkow)'
 WORKERS = 4
 DELAY = 0.3
 
-# Kategorie z okruszków („Gdzie jesteś?”), które planer może wykorzystać.
+# Breadcrumb categories („Gdzie jesteś?”) the planner can use.
 KEEP = ('dania-glowne', 'zupy', 'sniadania', 'salatki', 'fast-food', 'grill', 'dania-wegetarianskie', 'dania-weganskie')
 
 
@@ -85,7 +85,7 @@ def main():
     data = json.loads(OUT.read_text()) if OUT.exists() else {'recipes': {}, 'skipped': []}
     done = set(data['recipes']) | set(data['skipped'])
     todo = [u for u in urls if u not in done]
-    print(f'{len(urls)} przepisów w mapie strony, do pobrania: {len(todo)}', flush=True)
+    print(f'{len(urls)} recipes in sitemap, to fetch: {len(todo)}', flush=True)
 
     def work(u):
         h = get(u)
@@ -98,7 +98,7 @@ def main():
             try:
                 u, h = fut.result()
             except Exception as e:
-                print('błąd:', e, file=sys.stderr)
+                print('error:', e, file=sys.stderr)
                 continue
             r = parse(u, h)
             if r and any(c.split('/')[0] in KEEP for c in r['crumbs']):
@@ -108,9 +108,9 @@ def main():
             n += 1
             if n % 100 == 0:
                 OUT.write_text(json.dumps(data, ensure_ascii=False))
-                print(f'{n}/{len(todo)} · zapisane przepisy: {len(data["recipes"])}', flush=True)
+                print(f'{n}/{len(todo)} · recipes saved: {len(data["recipes"])}', flush=True)
     OUT.write_text(json.dumps(data, ensure_ascii=False))
-    print(f'Gotowe. Przepisy: {len(data["recipes"])}, pominięte: {len(data["skipped"])}')
+    print(f'Done. Recipes: {len(data["recipes"])}, skipped: {len(data["skipped"])}')
 
 
 if __name__ == '__main__':

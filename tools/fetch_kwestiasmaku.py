@@ -1,9 +1,9 @@
-"""Pobiera z kwestiasmaku.com dane potrzebne planerowi: nazwę, porcje, składniki, link oraz
-znaczniki sposobu przygotowania i szacowany czas (wyliczone z kroków; samego tekstu nie zapisuje).
+"""Fetches from kwestiasmaku.com the data the planner needs: name, servings, ingredients, link, plus
+cooking-method flags and an estimated time (derived from the steps; the text itself is not saved).
 
-Strona prosi w robots.txt o 10 s przerwy między zapytaniami, więc pobieramy po jednym, powoli.
-Bierzemy tylko kategorie przydatne w planerze (obiady, śniadania, lekkie kolacje).
-Uruchom: python3 tools/fetch_kwestiasmaku.py  (wznawia przerwane pobieranie)
+The site's robots.txt asks for 10 s between requests, so we fetch one at a time, slowly.
+Only categories useful to the planner are fetched (dinners, breakfasts, light suppers).
+Run: python3 tools/fetch_kwestiasmaku.py  (resumes an interrupted fetch)
 """
 import html
 import json
@@ -17,9 +17,9 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / 'data' / 'kwestiasmaku-raw.json'
 BASE = 'https://www.kwestiasmaku.com'
 UA = 'Mozilla/5.0 (prywatny planer posilkow)'
-DELAY = 10  # Crawl-delay z robots.txt
+DELAY = 10  # Crawl-delay from robots.txt
 
-# Kolejność = priorytet: najpierw kategorie najbardziej przydatne przy szybkim, zdrowym gotowaniu.
+# Order = priority: categories most useful for quick, healthy cooking come first.
 TAGS = [
     ('obiad', 'szybki-obiad'), ('sniadanie', 'sniadania-bez-chleba'), ('obiad', 'lunche-do-pracy'),
     ('obiad', 'z-jednej-patelni'), ('sniadanie', 'owsianka'), ('obiad', 'jednogarnkowe'), ('obiad', 'na-zdrowie'),
@@ -69,7 +69,7 @@ def flags(t, steps):
 
 
 def est_minutes(t):
-    # Suma czasów z kroków („gotować 15 minut”, „piec 20–25 min”) plus kilka minut na krojenie.
+    # Sum of times from the steps („gotować 15 minut”, „piec 20–25 min”) plus a few minutes for chopping.
     mins = [int(b or a) for a, b in re.findall(r'(\d+)\s*(?:[-–]\s*(\d+))?\s*min', t)]
     hours = [float(h.replace(',', '.')) for h in re.findall(r'(\d+(?:[.,]\d+)?)\s*godz', t)]
     total = sum(m for m in mins if m <= 120) + sum(h * 60 for h in hours if h <= 4)
@@ -109,7 +109,7 @@ def main():
             try:
                 h = get(BASE + u)
             except Exception as e:
-                print('błąd:', u, e, file=sys.stderr)
+                print('error:', u, e, file=sys.stderr)
                 continue
             info = data['urls'][u]
             r = parse(BASE + u, h, [info['kind']] + info['tags'])
@@ -119,7 +119,7 @@ def main():
                 data['skipped'].append(BASE + u)
             save()
 
-    # Kategoria po kategorii: adresy z kolejnych stron listy, a zaraz potem same przepisy.
+    # Category by category: URLs from successive list pages, then the recipes themselves.
     for kind, tag in TAGS:
         if tag in data['tagsDone']:
             continue
@@ -138,12 +138,12 @@ def main():
             save()
             if f'page={page + 1}' not in h:
                 break
-        print(f'{tag}: {len(page_urls)} przepisów na liście, pobieram…', flush=True)
+        print(f'{tag}: {len(page_urls)} recipes in list, fetching…', flush=True)
         fetch_recipes(page_urls)
         data['tagsDone'].append(tag)
         save()
-        print(f'{tag}: gotowe · razem przepisów {len(data["recipes"])}', flush=True)
-    print(f'Gotowe. Przepisy: {len(data["recipes"])}')
+        print(f'{tag}: done · total recipes {len(data["recipes"])}', flush=True)
+    print(f'Done. Recipes: {len(data["recipes"])}')
 
 
 if __name__ == '__main__':

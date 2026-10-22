@@ -36,7 +36,7 @@ ${title}
 <meta name="description" content="Plan posiłków na budżet: lista zakupów, kalorie i gotowanie.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,500..800&family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
 <link rel="icon" href="${icon}">
 <style>
 ${read('styles.css')}

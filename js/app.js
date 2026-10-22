@@ -167,43 +167,40 @@ function renderPlan() {
   const sessions = cookDays(p.meals);
 
   return `
-    <section class="card summary">
-      <div class="row spread">
-        <div>
-          <div class="eyebrow">Zakupy na ${daysTxt(s.days)} · ${s.people} ${plural(s.people, 'osoba', 'osoby', 'osób')}</div>
-          <div class="budget-big">${fmtZl(list.total)}</div>
-        </div>
-        <span class="pill ${left >= 0 ? 'ok' : 'warn'}">${left >= 0 ? `zostaje ${fmtZl(left)}` : `brakuje ${fmtZl(-left)}`}</span>
+    <section class="hero">
+      <div class="hero-top">
+        <span class="eyebrow">Zakupy · ${daysTxt(s.days)} · ${s.people} os.</span>
+        <span class="hero-left ${left >= 0 ? 'ok' : 'warn'}">${left >= 0 ? `zostaje ${fmtZl(left)}` : `brakuje ${fmtZl(-left)}`}</span>
       </div>
+      <div class="hero-num">${fmtZl(list.total).replace(' zł', '')}<small>zł</small></div>
       <div class="bar ${left < 0 ? 'over' : ''}"><i style="width:${pct}%"></i></div>
-      <div class="muted small">Budżet ${fmtZl(s.budget)} · ok. ${fmtZl(list.total / (s.days * s.people))} na osobę dziennie</div>
-      ${prefsLine(s)}
+      <div class="hero-sub">z ${fmtZl(s.budget)} · ok. ${fmtZl(list.total / (s.days * s.people))} na osobę dziennie</div>
       ${nutritionSummary(p)}
+      ${prefsLine(s)}
       ${left < 0 ? `<p class="notice" style="margin:12px 0 0">Przy ${s.kcal.toLocaleString('pl-PL')} kcal dziennie ten plan kosztuje ok. ${fmtZl(list.total / (s.days * s.people))} na osobę dziennie, więc nie mieści się w budżecie. Podnieś budżet do ok. ${Math.ceil(list.total / 10) * 10} zł albo skróć okres.</p>` : ''}
-      <div class="row" style="margin-top:14px">
+      <div class="row" style="margin-top:16px">
         <a class="btn primary" href="#zakupy">Lista zakupów</a>
         <a class="btn" href="#gotowanie">Gotowanie</a>
       </div>
     </section>
 
-    ${mealHead('obiad', 'Obiady')}
-    ${dinners.map(([m, i]) => dishCard(m, i)).join('')}
-    ${breakfasts.length ? `${mealHead('sniadanie', 'Śniadania')}${breakfasts.map(([m, i]) => dishCard(m, i)).join('')}` : ''}
-    ${suppers.length ? `${mealHead('kolacja', 'Kolacje')}${suppers.map(([m, i]) => dishCard(m, i)).join('')}` : ''}
+    ${mealHead('obiad', 'Obiady', dinners.length)}
+    <div class="rail">${dinners.map(([m, i]) => dishCard(m, i)).join('')}</div>
+    ${breakfasts.length ? `${mealHead('sniadanie', 'Śniadania', breakfasts.length)}<div class="rail">${breakfasts.map(([m, i]) => dishCard(m, i)).join('')}</div>` : ''}
+    ${suppers.length ? `${mealHead('kolacja', 'Kolacje', suppers.length)}<div class="rail">${suppers.map(([m, i]) => dishCard(m, i)).join('')}</div>` : ''}
 
-    <h2>Dzień po dniu</h2>
-    <p class="muted small">${sessions.length === 1 ? 'Gotujesz raz, na początku. Potem tylko odgrzewasz.' : `Gotujesz ${sessions.length} razy: ${sessions.map((d) => dayLong(d)).join(', ')}.`}</p>
-    <div class="days">${Array.from({ length: s.days }, (_, d) => dayRow(d)).join('')}</div>
+    <div class="sec-head"><h2>Tydzień</h2><span class="muted small">${sessions.length === 1 ? 'gotujesz raz, potem odgrzewasz' : `gotujesz ${sessions.length}×: ${sessions.map((d) => dayShort(d)).join(', ')}`}</span></div>
+    <div class="week">${Array.from({ length: s.days }, (_, d) => dayRow(d)).join('')}</div>
 
-    <div class="row" style="margin:20px 0 8px">
-      <button class="btn" data-action="reroll">Wylosuj inne dania</button>
+    <div class="row" style="margin:24px 0 8px">
+      <button class="btn" data-action="reroll">${icon('swap')} Wylosuj inne dania</button>
       <button class="btn" data-action="edit">Zmień ustawienia</button>
       <button class="btn ghost" data-action="new-plan">Nowy plan</button>
     </div>`;
 }
 
 // Section heading with a lid in the meal's colour, matching the containers below it.
-const mealHead = (type, label) => `<div class="meal-head" style="--lid:var(--lid-${type})"><h2>${label}</h2></div>`;
+const mealHead = (type, label, n) => `<div class="sec-head meal-head" style="--lid:var(--lid-${type})"><h2>${label}</h2><span class="muted small">${n} ${plural(n, 'danie', 'dania', 'dań')}</span></div>`;
 // A tear-off calendar page: weekday on top, day of the month below.
 const calPage = (d) => `<div class="cal"><b>${dayShort(d)}</b><span>${dayDate(d).getDate()}</span></div>`;
 
@@ -215,7 +212,7 @@ function prefsLine(s) {
   if (s.supperTaste && s.supperTaste !== 'any') bits.push(`kolacje ${TASTE_LABELS[s.supperTaste]}`);
   if (s.price && s.price !== 'any') bits.push(`${PRICE_LABELS[s.price]} dania`);
   if (s.effort && s.effort !== 'any') bits.push(s.effort === 'min' ? 'szybkie dania, mało gotowania' : 'dania do 75 min');
-  return bits.length ? `<div class="row" style="margin-top:8px">${bits.map((b) => `<span class="pill">${b}</span>`).join('')}</div>` : '';
+  return bits.length ? `<div class="hero-prefs">${bits.join(' · ')}</div>` : '';
 }
 
 function nutritionSummary(p) {
@@ -226,11 +223,11 @@ function nutritionSummary(p) {
   const split = ['sniadanie', 'obiad', 'kolacja'].filter((t) => shares[t]).map((t) => `${names[t]} ok. ${Math.round(p.settings.kcal * shares[t])}`).join(', ');
   return `
     <div class="nutri">
-      <div><strong>${avg('kcal').toLocaleString('pl-PL')}</strong><span>kcal dziennie</span></div>
-      <div><strong>${avg('protein')} g</strong><span>białka dziennie</span></div>
-      <div><strong>${(avg('kcal') * p.settings.days).toLocaleString('pl-PL')}</strong><span>kcal w planie</span></div>
+      <div><strong>${avg('kcal').toLocaleString('pl-PL')}</strong><span>kcal/dzień</span></div>
+      <div><strong>${avg('protein')}<small>g</small></strong><span>białko</span></div>
+      <div><strong>${p.settings.kcal.toLocaleString('pl-PL')}</strong><span>cel kcal</span></div>
     </div>
-    <div class="muted small">Na osobę. Cel ${p.settings.kcal.toLocaleString('pl-PL')} kcal dziennie: ${split} kcal. Przekąski dolicz osobno.</div>`;
+    <div class="hero-sub">Na osobę: ${split} kcal. Przekąski dolicz osobno.</div>`;
 }
 
 const mealNutrition = (m) => { const n = nutrition(recipeById[m.recipeId]); const f = m.factor || 1; return { kcal: Math.round(n.kcal * f), protein: Math.round(n.protein * f) }; };
@@ -252,25 +249,30 @@ function equipmentPill(r, s) {
 
 function dishCard(m, i) {
   const r = recipeById[m.recipeId];
-  const p = state.plan;
-  const tags = [];
+  const s = state.plan.settings;
   const b = m.batches;
-  if (b.some((x) => x.freeze)) tags.push('<span class="pill accent">część do zamrażarki</span>');
-  if (b.length > 1 || b[0].cookDay > 0) tags.push(`<span class="pill">gotujesz: ${b.map((x) => dayShort(x.cookDay)).join(', ')}</span>`);
-  const eq = equipmentPill(r, state.plan.settings);
-  if (eq) tags.push(eq);
+  const notes = [];
+  if (b.length > 1 || b[0].cookDay > 0) notes.push(`gotujesz: ${b.map((x) => dayShort(x.cookDay)).join(', ')}`);
+  if (b.some((x) => x.freeze)) notes.push('część do zamrażarki');
+  if (r.oven && r.af && s.oven === false) notes.push('air fryer zamiast piekarnika');
+  else if (r.af && !r.oven) notes.push('air fryer');
+  const tier = priceTier(r, s);
   return `
-    <article class="card dish box lid-${m.type}">
-      <div class="emoji">${r.emoji}</div>
-      <div style="min-width:0">
+    <article class="dish dish-card lid-${m.type}">
+      <div class="dish-top">
+        <span class="dish-days num">${daysRange(m.days)}</span>
+        <span class="dish-emoji" aria-hidden="true">${r.emoji}</span>
+        <span class="dish-portions num">${portionsTxt(m.portions)}${portionSize(m).replace(' po', '')}</span>
+      </div>
+      <div class="dish-body">
         <h3>${r.name}</h3>
-        <div class="meta">${portionsTxt(m.portions)}${portionSize(m)} · ${daysRange(m.days)} · ${kcalTxt(mealNutrition(m))} · ok. ${fmtZl(costPerPortion(r, state.plan.settings) * (m.factor || 1))}/porcja ${pricePill(r, state.plan.settings)} ${tastePill(r)}</div>
-        ${tags.length ? `<div class="row" style="margin-top:6px">${tags.join('')}</div>` : ''}
-        <div class="row">
-          <button class="btn small" data-action="swap" data-i="${i}">Zamień</button>
+        <div class="meta"><span class="num">${kcalTxt(mealNutrition(m))}</span> · <span class="num">${fmtZl(costPerPortion(r, s) * (m.factor || 1))}</span>/porcja · <span class="tier tier-${tier}">${PRICE_LABELS[tier]}</span>${r.type === 'sniadanie' ? ` · ${TASTE_LABELS[taste(r)]}` : ''}</div>
+        ${notes.length ? `<div class="dish-notes">${notes.join(' · ')}</div>` : ''}
+        <div class="actions">
+          ${iconBtn('swap', `Zamień: ${r.name}`, `data-action="swap" data-i="${i}"`, 'solid')}
           ${rateButtons(r)}
-          ${r.source ? sourceBtn(r, 'btn small ghost') : `<button class="btn small ghost" data-action="recipe" data-id="${r.id}">Przepis</button>`}
-          ${r.source ? `<button class="btn small ghost" data-action="recipe" data-id="${r.id}">Składniki</button>` : ''}
+          ${iconBtn('list', `Składniki: ${r.name}`, `data-action="recipe" data-id="${r.id}"`)}
+          ${r.source ? iconLink('out', SITES[siteOf(r)].link, r.source) : ''}
         </div>
       </div>
     </article>`;
@@ -284,13 +286,13 @@ function dayRow(d) {
       const r = recipeById[m.recipeId];
       const batch = m.batches.find((b) => b.days.includes(d));
       let note = '';
-      if (batch.cookDay === d) note = d === 0 ? '' : ' <span class="pill accent">ugotuj dziś</span>';
-      if (batch.freeze && d + 1 > r.keeps) note = ' <span class="pill">z zamrażarki</span>';
-      items.push(`<li><span class="meal-tag ${type}">${{ sniadanie: 'Śn', obiad: 'Ob', kolacja: 'Kol' }[type]}</span><span>${r.name}${note}</span></li>`);
+      if (batch.cookDay === d) note = d === 0 ? '' : '<em>ugotuj dziś</em>';
+      if (batch.freeze && d + 1 > r.keeps) note = '<em>z zamrażarki</em>';
+      items.push(`<li class="${type}">${r.name}${note}</li>`);
     }
   }
   const n = dayNutrition(state.plan.meals, d);
-  return `<div class="day"><div>${calPage(d)}<div class="kcal" style="text-align:center">${n.kcal} kcal</div></div><ul>${items.join('')}</ul></div>`;
+  return `<div class="day">${calPage(d)}<div class="kcal num">${n.kcal} kcal</div><ul>${items.join('')}</ul></div>`;
 }
 
 function renderForm() {
@@ -428,7 +430,11 @@ function tasteProfile() {
 
 function rateButtons(r, small = true) {
   const liked = !!state.likes[r.id], disliked = !!state.dislikes[r.id];
-  const cls = small ? 'btn small ghost rate' : 'btn rate';
+  if (small) {
+    return iconBtn('heart', `Lubię: ${r.name}`, `data-action="like" data-id="${r.id}" aria-pressed="${liked}"`, liked ? 'on' : '')
+      + iconBtn('thumbDown', `Nie dla mnie: ${r.name}`, `data-action="dislike" data-id="${r.id}" aria-pressed="${disliked}"`, disliked ? 'on-no' : '');
+  }
+  const cls = 'btn rate';
   return `<button class="${cls} ${liked ? 'on' : ''}" data-action="like" data-id="${r.id}" aria-pressed="${liked}" aria-label="Lubię: ${r.name}">${liked ? '♥' : '♡'} Lubię</button>
     <button class="${cls} ${disliked ? 'on-no' : ''}" data-action="dislike" data-id="${r.id}" aria-pressed="${disliked}" aria-label="Nie dla mnie: ${r.name}">👎${small ? '' : ' Nie dla mnie'}</button>`;
 }
@@ -764,15 +770,16 @@ function renderQuick() {
     ${f === 'sniadanie' ? `<div class="chips" style="margin-bottom:12px">${tasteChips('qtaste', state.quickTaste)}</div>` : ''}
     <p class="muted small">${list.length} ${plural(list.length, 'przepis', 'przepisy', 'przepisów')}${s.avoid?.length ? ` · bez: ${s.avoid.join(', ')}` : ''}${s.oven === false ? ' · bez piekarnika' : ''}</p>
     ${shown.map(({ r, h }) => `
-      <article class="card dish">
+      <article class="dish quick lid-${r.type}">
         <div class="emoji">${r.emoji}</div>
         <div style="min-width:0">
+          <div class="quick-time num">${minTxt(recipeTime(r))}</div>
           <h3>${r.name}</h3>
-          <div class="meta">${minTxt(recipeTime(r))} · ${ingCount(r)} ${plural(ingCount(r), 'produkt', 'produkty', 'produktów')} · ${h.protein} g białka · ${h.kcal} kcal · ok. ${fmtZl(costPerPortion(r, s))} ${pricePill(r, s)} ${tastePill(r)}${siteTag(r)}</div>
-          ${equipmentPill(r, s) ? `<div class="row" style="margin-top:6px">${equipmentPill(r, s)}</div>` : ''}
-          <div class="row">
-            ${r.source ? sourceBtn(r, 'btn small') : `<button class="btn small" data-action="recipe" data-id="${r.id}">Przepis</button>`}
-            ${r.source ? `<button class="btn small ghost" data-action="recipe" data-id="${r.id}">Składniki</button>` : ''}
+          <div class="meta">${ingCount(r)} ${plural(ingCount(r), 'produkt', 'produkty', 'produktów')} · <span class="num">${h.protein} g</span> białka · <span class="num">${h.kcal}</span> kcal · <span class="num">${fmtZl(costPerPortion(r, s))}</span> · <span class="tier tier-${priceTier(r, s)}">${PRICE_LABELS[priceTier(r, s)]}</span>${r.type === 'sniadanie' ? ` · ${TASTE_LABELS[taste(r)]}` : ''}${siteTag(r)}</div>
+          ${equipmentPill(r, s) ? `<div class="dish-notes">${equipmentPill(r, s).replace(/<[^>]+>/g, '')}</div>` : ''}
+          <div class="actions">
+            ${r.source ? iconLink('out', SITES[siteOf(r)].link, r.source) : ''}
+            ${iconBtn('list', `Przepis: ${r.name}`, `data-action="recipe" data-id="${r.id}"`, r.source ? '' : 'solid')}
             ${rateButtons(r)}
           </div>
         </div>
@@ -804,9 +811,19 @@ function recipeBody(r) {
 }
 
 const ICONS = {
+  swap: '<path d="M4 8h14l-3.5-3.5M20 16H6l3.5 3.5"/>',
+  heart: '<path d="M12 20s-7.5-4.6-7.5-10.2A4.2 4.2 0 0 1 12 7.2a4.2 4.2 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z"/>',
+  thumbDown: '<path d="M8 14V4M8 14l3.6 6a2 2 0 0 0 2.4-1.9V14h4.6a2 2 0 0 0 2-2.3l-1-6.2A2 2 0 0 0 17.6 4H8M8 4H4.5v10H8"/>',
+  out: '<path d="M7 17 17 7M8.5 7H17v8.5"/>',
+  list: '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r=".9"/><circle cx="4.5" cy="12" r=".9"/><circle cx="4.5" cy="18" r=".9"/>',
   basket: '<path d="M4 9h16l-1.6 9.2a2 2 0 0 1-2 1.8H7.6a2 2 0 0 1-2-1.8z"/><path d="M8.5 9 12 4l3.5 5"/>',
   pot: '<path d="M4 10h16v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z"/><path d="M2 10h20M9 7c0-1 1-1.5 1-2.5M14 7c0-1 1-1.5 1-2.5"/>',
 };
+const icon = (name) => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
+// Round icon button with a text label for screen readers and a tooltip.
+const iconBtn = (name, label, attrs, cls = '') => `<button class="ibtn ${cls}" ${attrs} aria-label="${label}" title="${label}">${icon(name)}</button>`;
+const iconLink = (name, label, href) => `<a class="ibtn" href="${href}" target="_blank" rel="noopener" aria-label="${label}" title="${label}">${icon(name)}</a>`;
+
 function emptyState(icon, text) {
   return `<div class="empty"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[icon]}</svg><p class="muted">${text}</p><a class="btn primary" href="#plan">Ułóż plan</a></div>`;
 }

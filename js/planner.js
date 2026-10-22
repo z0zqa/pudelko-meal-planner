@@ -203,8 +203,8 @@ export function portionFactor(r, type, s) {
   if (!s?.kcal) return 1;
   const k = nutrition(r).kcal || 1;
   const target = s.kcal * (mealShares(s)[type] || 0);
-  // At most a double serving (more for high targets, e.g. 3x at 3000 kcal); triple when the plan has lunch only.
-  const cap = Math.max(Object.keys(mealShares(s)).length === 1 ? 3 : 2, s.kcal / 1000);
+  // Usually at most a double serving; higher targets allow more (up to 3x), as does a lunch-only plan.
+  const cap = Math.max(Object.keys(mealShares(s)).length === 1 ? 3 : 2, Math.min(3, Math.floor(s.kcal / 200) / 4));
   return Math.min(cap, Math.max(0.5, Math.round((target / k) * 4) / 4));
 }
 
@@ -503,7 +503,9 @@ export function generatePlan(s, fridge = {}, rng = Math.random, tries = 2500) {
       const goal = s.kcal;
       // Penalty for each day's deviation in either direction (too little food or going over the limit).
       // Weighted heavily, since the fixed calorie target matters more than a few zł difference.
-      const dev = Array.from({ length: s.days }, (_, i) => Math.abs(goal - dayNutrition(meals, i).kcal)).reduce((a, x) => a + x, 0) / s.days;
+      // The worst day counts extra, so a single very light day doesn't hide behind a good average.
+      const devs = Array.from({ length: s.days }, (_, i) => Math.abs(goal - dayNutrition(meals, i).kcal));
+      const dev = devs.reduce((a, x) => a + x, 0) / s.days + Math.max(...devs) / 2;
       score += (dev / goal) * s.budget * 3;
     }
     if (prefs?.liked) {

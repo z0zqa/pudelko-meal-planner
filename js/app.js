@@ -13,10 +13,13 @@ const KCAL_OPTIONS = [1200, 1500, 1750, 2000, 2200, 3000];
 const DEFAULT_SETTINGS = { budget: 150, days: 5, people: 1, breakfasts: true, suppers: true, diet: 'all', glutenFree: false, source: 'all', kcal: 1500, avoid: ['papryka'], lactoseFree: true, effort: 'min', oven: false, airfryer: true, price: 'any', breakfastTaste: 'any', supperTaste: 'any' };
 const state = load();
 
-function load() {
-  let saved = {};
-  try { saved = JSON.parse(localStorage.getItem(KEY)) || {}; } catch {}
+function readLocal() {
+  try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; }
+}
+function load(saved = readLocal()) {
   return {
+    // When this state was last saved, to pick the newer of the browser and account copies.
+    savedAt: saved.savedAt || 0,
     // Always three meals (breakfast, lunch, supper); a calorie target outside the options falls back to 1500.
     // A source whose pack is missing (e.g. in the build without private recipes) falls back to "Wszystkie" (All).
     settings: { ...DEFAULT_SETTINGS, ...saved.settings, kcal: KCAL_OPTIONS.includes(saved.settings?.kcal) ? saved.settings.kcal : 1500, breakfasts: true, suppers: true, ...(saved.settings?.source in SITES && !LOADED_SITES.includes(saved.settings.source) ? { source: 'all' } : {}) },
@@ -40,9 +43,51 @@ function load() {
     recipeLimit: 40,
   };
 }
-function save() {
+// Everything worth keeping: the state without view-only fields (filters, search, open form).
+function persisted() {
   const { recipeFilter, recipeSource, recipeQuery, recipeLimit, recipePrice, recipeTaste, editing, quickType, quickMode, quickLimit, quickPrice, quickTaste, ...rest } = state;
-  try { localStorage.setItem(KEY, JSON.stringify(rest)); } catch {}
+  return rest;
+}
+function save() {
+  state.savedAt = Date.now();
+  const data = persisted();
+  try { localStorage.setItem(KEY, JSON.stringify(data)); } catch {}
+  pushRemote(data);
+}
+
+// ── Account sync ──
+// Browser storage can be wiped between visits (and is separate on each device), so on claude.ai the
+// state is also kept in the viewer's private document in the artifact's database. On load the newer
+// of the two copies wins; every save goes to both, the account copy batched to one write per second.
+let remote = null;
+let pushTimer = null;
+function pushRemote(data) {
+  if (!remote) return;
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(() => remote.set(JSON.parse(JSON.stringify(data))).catch((err) => {
+    // No write access (e.g. a view-only share) or a permanent refusal: keep using browser storage only.
+    if (err?.code !== 'unavailable' && err?.code !== 'resource_exhausted') remote = null;
+  }), 1000);
+}
+async function connectRemote() {
+  if (!window.claude?.use) return;
+  const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+  const id = db && user ? await user.id() : null;
+  if (!id) return;
+  const ref = db.doc(`data/users/${id}/state`);
+  let snap;
+  try { snap = await ref.get(); } catch { return; }
+  remote = ref;
+  const saved = snap.exists ? snap.data() : null;
+  if (saved && (saved.savedAt || 0) > state.savedAt) {
+    const ui = { recipeFilter: state.recipeFilter, recipeSource: state.recipeSource, recipeQuery: state.recipeQuery, recipeLimit: state.recipeLimit };
+    Object.assign(state, load(saved), ui);
+    try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch {}
+    dropStalePlan();
+    if (!sheet.open) route();
+  } else if (state.savedAt) {
+    pushRemote(persisted());
+  }
 }
 
 // ── Dates ──
@@ -1010,6 +1055,7 @@ document.addEventListener('input', (e) => {
 sheet.addEventListener('click', (e) => { if (e.target === sheet) sheet.close(); });
 window.addEventListener('hashchange', () => { route(); window.scrollTo(0, 0); });
 route();
+connectRemote();
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});

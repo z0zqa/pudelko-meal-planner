@@ -47,7 +47,7 @@ const MAP_SRC = [
   [/boczk\w*|boczek|bekon\w*|słonin\w*|pancett\w*/, 'boczek'],
   [/kiełbas\w*|chorizo|kabanos\w*|salami|kaszank\w*/, 'kielbasa'],
   [/parów\w*|frankfurter\w*/, 'parowki'],
-  [/szynk\w*|polędwic\w* sopock|prosciutto/, 'szynka'],
+  [/szynk\w*|polędwic\w* sopock|prosciutto|mortadel\w*/, 'szynka'],
   [/wieprz\w*|karków\w*|schab\w*|łopatk\w*|żeberk\w*|golonk\w*|polędwiczk\w*|kark\w*|mięs\w*/, 'wieprzowina'],
   [/łoso\w*/, 'losos'],
   [/tuńczyk\w*/, 'tunczyk'],
@@ -67,7 +67,7 @@ const MAP_SRC = [
   [/\bpor(a|u|y|em|ów)?\b|porów/, 'por'],
   [/seler\w*|kalarep\w*|fenku\w*|koper\w* włosk\w*/, 'seler'],
   [/chrzan\w*/, 'chrzan'],
-  [/kapust\w* kiszon\w*|kiszon\w* kapust\w*/, 'kapustaKiszona'],
+  [/kapust\w* kiszon\w*|kiszon\w* kapust\w*|kimchi/, 'kapustaKiszona'],
   [/kapust\w* pekiń\w*|pekin\w*/, 'kapustaPekin'],
   [/kapust\w*/, 'kapusta'],
   [/ogór\w* kiszon\w*|kiszon\w* ogór\w*|ogór\w* konserw\w*|korniszon\w*|pikl\w*/, 'ogorekKiszony'],
@@ -120,15 +120,15 @@ const MAP_SRC = [
   [/kuskus\w*|kasz\w* manna|kaszy mann|semolin\w*/, 'kuskus'],
   [/bulgur\w*|quinoa|komos\w*/, 'bulgur'],
   [/płatk\w* (owsian|jaglan|gryczan|orkisz|żytn)\w*|owsian\w*|musli|granol\w*/, 'platki'],
-  [/bułk\w* tart\w*|panko|otręb\w*/, 'bulkaTarta'],
+  [/bułk\w* tart\w*|panko|otręb\w*|panierk\w* do/, 'bulkaTarta'],
   [/tortill\w*|wrap\w*|plack\w* pit|pit(a|y)\b|pins\w*|piadin\w*|spod\w* do pi\w*|nachos\w*|naan/, 'tortilla'],
   [/ciast\w* francusk\w*|ciast\w* filo/, 'ciastoFrancuskie'],
   [/drożdż\w*/, 'drozdze'],
   [/bułk\w*|bagietk\w*|kajzer\w*|ciabatt\w*|grzank\w*|bułecz\w*|rogal\w*/, 'bulki'],
-  [/chleb\w*|kromk\w*|pieczyw\w*|tost\w*/, 'chleb'],
+  [/chleb\w*|kromk\w*|pieczyw\w*|tost\w*|focacci\w*/, 'chleb'],
   [/mąk\w*|\bmak[ai] pszenn\w*/, 'maka'],
   [/sos\w* sojow\w*|tamari/, 'sojowy'],
-  [/majonez\w*/, 'majonez'],
+  [/majonez\w*|sos\w* tatarsk\w*/, 'majonez'],
   [/musztard\w*/, 'musztarda'],
   [/ketchup\w*/, 'ketchup'],
   [/miód|miodu|miodem|syrop\w* (klonow|z agawy|daktylow)/, 'miod'],
@@ -444,6 +444,16 @@ const SOURCES = {
       if (/bez glutenu|glutenfree/.test(kw) && !t.includes('bezgl')) t.push('bezgl');
       return t;
     },
+  },
+  ds: {
+    raw: 'data/doradcasmaku-raw.json', out: 'js/recipes-ds.js', name: 'DS_RECIPES', prefix: 'ds-', site: 'ds',
+    note: 'doradcasmaku.pl', qtyFirst: true,
+    // The meal type comes from the site's category; desserts and snacks have none and are skipped.
+    type: (r) => r.tags[0],
+    servings,
+    // No nutrition on the site, so it's calculated from ingredients.
+    nutrition: (r, ing, mass, pm, pk, serves) => { const c = calcNutrition(ing, pk, serves); return { kcal: Math.round(c.kcal), protein: Math.round(c.protein) }; },
+    tags: (r, ing) => dietFromIngredients(ing, r.ingredients.flatMap((g) => g.items.map((i) => i.name.toLowerCase())).join(' | ')),
   },
   lidl: {
     raw: 'data/kuchnialidla-raw.json', out: 'js/recipes-lidl.js', name: 'LIDL_RECIPES', prefix: 'kl-', site: 'lidl',

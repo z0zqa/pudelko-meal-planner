@@ -2,13 +2,13 @@ import { INGREDIENTS, RECIPES, LACTOSE_FREE } from './data.js';
 // Recipe packs from other sites are optional: tools/build-recipes.mjs builds them locally,
 // and when the file is missing the app runs on the built-in recipes alone.
 // <packs>
-const packs = await Promise.all(['ania', 'lidl', 'ks', 'respo'].map((s) => import(`./recipes-${s}.js`).then((m) => Object.values(m).flat(), () => [])));
+const packs = await Promise.all(['ania', 'lidl', 'ks', 'respo', 'ds'].map((s) => import(`./recipes-${s}.js`).then((m) => Object.values(m).flat(), () => [])));
 // </packs>
 
 export const ALL_RECIPES = [...RECIPES, ...packs.flat()];
-// Recipe source: 'own' (built-in), 'ania', 'lidl', 'ks', 'respo'.
+// Recipe source: 'own' (built-in), 'ania', 'lidl', 'ks', 'respo', 'ds'.
 export const siteOf = (r) => r.site || (r.source ? 'ania' : 'own');
-export const SITES = { ania: { label: 'Ania Gotuje', link: 'Przepis u Ani' }, lidl: { label: 'Kuchnia Lidla', link: 'Przepis w Kuchni Lidla' }, ks: { label: 'Kwestia Smaku', link: 'Przepis w Kwestii Smaku' }, respo: { label: 'Centrum Respo', link: 'Przepis w Respo' } };
+export const SITES = { ania: { label: 'Ania Gotuje', link: 'Przepis u Ani' }, lidl: { label: 'Kuchnia Lidla', link: 'Przepis w Kuchni Lidla' }, ks: { label: 'Kwestia Smaku', link: 'Przepis w Kwestii Smaku' }, respo: { label: 'Centrum Respo', link: 'Przepis w Respo' }, ds: { label: 'Doradca Smaku', link: 'Przepis w Doradcy Smaku' } };
 // Sites the loaded recipes come from (for filters).
 export const LOADED_SITES = Object.keys(SITES).filter((k) => ALL_RECIPES.some((r) => siteOf(r) === k));
 export const recipeById = Object.fromEntries(ALL_RECIPES.map((r) => [r.id, r]));

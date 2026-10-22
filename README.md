@@ -1,4 +1,4 @@
-# Pudełko 🥡
+# Pudełko meal planner 🥡
 
 **Budget meal planner: shopping list, calories and cooking plan in one place.**
 
@@ -73,4 +73,4 @@ On top of the built-in recipes, Pudełko uses about 5,200 dishes from four Polis
 - `tools/fetch_*.py` downloads the data into `data/*-raw.json`, respecting robots.txt crawl delays, and resumes interrupted downloads.
 - `node tools/build-recipes.mjs [ania|lidl|ks|respo]` converts free-text ingredients ("2 ząbki czosnku", "pół szklanki mleka") into products from the price list and builds `js/recipes-*.js`.
 
-This is a private project for personal use.
+This is a project for personal use.

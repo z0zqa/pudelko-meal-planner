@@ -8,7 +8,7 @@ import {
 const KEY = 'pudelko-v1';
 // Fixed daily calorie target (the user's setting), regardless of previously saved settings.
 // Daily calorie targets to choose from.
-const KCAL_OPTIONS = [1200, 1500, 2000, 2200, 3000];
+const KCAL_OPTIONS = [1200, 1500, 1750, 2000, 2200, 3000];
 const DEFAULT_SETTINGS = { budget: 150, days: 5, people: 1, breakfasts: true, suppers: true, diet: 'all', glutenFree: false, source: 'all', kcal: 1500, avoid: ['papryka'], lactoseFree: true, effort: 'min', oven: false, airfryer: true, price: 'any', breakfastTaste: 'any', supperTaste: 'any' };
 const state = load();
 

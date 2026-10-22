@@ -12,7 +12,7 @@ The interface is in Polish, since it works with Polish recipes, products and sto
 
 ## Features
 
-- **A plan that fits the budget.** Breakfast, lunch and supper every day, with a daily calorie target of 1200, 1500, 2000, 2200 or 3000 kcal. Portions scale to hit it, and any dish can be rerolled or swapped, with the shopping cost updated instantly.
+- **A plan that fits the budget.** Breakfast, lunch and supper every day, with a daily calorie target of 1200, 1500, 1750, 2000, 2200 or 3000 kcal. Portions scale to hit it, and any dish can be rerolled or swapped, with the shopping cost updated instantly.
 - **Shopping list in whole packages.** With prices, grouped by store section, showing what will be left over. Checked items move to the fridge, and the list can be shared or copied.
 - **Fridge.** Type in what you already have and the next plan uses it up. Cooked dishes take their ingredients out of the fridge.
 - **Cooking schedule.** Meal prep laid out: what to cook on day one, what mid-week (when a dish won't keep that long) and what to freeze.

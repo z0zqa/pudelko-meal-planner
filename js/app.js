@@ -9,7 +9,7 @@ const KEY = 'pudelko-v1';
 // Fixed daily calorie target (the user's setting), regardless of previously saved settings.
 // Daily calorie targets to choose from.
 const KCAL_OPTIONS = [1200, 1500, 2000, 2200, 3000];
-const DEFAULT_SETTINGS = { budget: 100, days: 5, people: 1, breakfasts: true, suppers: true, diet: 'all', glutenFree: false, source: 'all', kcal: 1500, avoid: ['papryka'], lactoseFree: true, effort: 'min', oven: false, airfryer: true, price: 'any', breakfastTaste: 'any', supperTaste: 'any' };
+const DEFAULT_SETTINGS = { budget: 150, days: 5, people: 1, breakfasts: true, suppers: true, diet: 'all', glutenFree: false, source: 'all', kcal: 1500, avoid: ['papryka'], lactoseFree: true, effort: 'min', oven: false, airfryer: true, price: 'any', breakfastTaste: 'any', supperTaste: 'any' };
 const state = load();
 
 function load() {
@@ -258,7 +258,7 @@ function renderForm() {
       <div class="field">
         <label for="budget">Budżet na zakupy</label>
         <div class="money"><input id="budget" name="budget" type="number" inputmode="decimal" min="10" step="1" value="${s.budget}" required></div>
-        <div class="chips presets">${[30, 50, 80, 120, 200].map((v) => `<button type="button" class="chip" data-action="preset" data-v="${v}">${v} zł</button>`).join('')}</div>
+        <div class="chips presets">${[100, 150, 200, 300, 400, 500].map((v) => `<button type="button" class="chip" data-action="preset" data-v="${v}">${v} zł</button>`).join('')}</div>
       </div>
       <div class="row spread field">
         <div class="label">Na ile dni</div>

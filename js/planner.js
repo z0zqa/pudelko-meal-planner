@@ -436,7 +436,30 @@ export function candidatesRelaxed(type, s) {
   return candidates(type, steps[steps.length - 1]);
 }
 
+// Draws many dish combinations and picks one that fits the budget. The search is a generator that pauses
+// every 64 combinations, so the app can run it in slices and keep the screen responsive (generatePlanAsync).
 export function generatePlan(s, fridge = {}, rng = Math.random, tries = 2500) {
+  const it = planSearch(s, fridge, rng, tries);
+  let r;
+  while (!(r = it.next()).done);
+  return r.value;
+}
+
+// The same search, giving the browser a frame every ~10 ms of work.
+export async function generatePlanAsync(s, fridge = {}, rng = Math.random, tries = 2500) {
+  const it = planSearch(s, fridge, rng, tries);
+  let r;
+  let t0 = performance.now();
+  while (!(r = it.next()).done) {
+    if (performance.now() - t0 > 10) {
+      await new Promise((res) => setTimeout(res, 0));
+      t0 = performance.now();
+    }
+  }
+  return r.value;
+}
+
+function* planSearch(s, fridge, rng, tries) {
   const dinners = candidatesRelaxed('obiad', s);
   const breakfasts = s.breakfasts ? candidatesRelaxed('sniadanie', s) : [];
   const suppers = s.suppers ? candidatesRelaxed('kolacja', s) : [];
@@ -474,6 +497,7 @@ export function generatePlan(s, fridge = {}, rng = Math.random, tries = 2500) {
   // A second round without the variety rule when strict filters left too few distinct dishes.
   let strict = true;
   for (let t = 0; t < tries * 2; t++) {
+    if ((t & 63) === 0) yield;
     if (t === tries) {
       if (results.length) break;
       strict = false;

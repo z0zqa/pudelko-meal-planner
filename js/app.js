@@ -1,7 +1,7 @@
 import { INGREDIENTS, CATEGORIES, TAG_LABELS } from './data.js';
 import { PRICES_DATE } from './prices.js';
 import {
-  ALL_RECIPES, siteOf, SITES, LOADED_SITES, buildProfile, describeProfile, affinity, taste, TASTE_LABELS, priceTier, PRICE_LABELS, PRICE_LIMITS, EFFORT, norm, buyId, isQuickHealthy, healthInfo, ingCount, fitsEquipment, avoidStems, containsAvoided, recipeTime, recipeById, scaled, nutrition, dayNutrition, generatePlan, mealShares, shoppingList, swapOptions, costPerPortion, cookDays,
+  ALL_RECIPES, siteOf, SITES, LOADED_SITES, buildProfile, describeProfile, affinity, taste, TASTE_LABELS, priceTier, PRICE_LABELS, PRICE_LIMITS, EFFORT, norm, buyId, isQuickHealthy, healthInfo, ingCount, fitsEquipment, avoidStems, containsAvoided, recipeTime, recipeById, scaled, nutrition, dayNutrition, generatePlanAsync, mealShares, shoppingList, swapOptions, costPerPortion, cookDays,
   fmtQty, fmtZl, round2,
 } from './planner.js';
 
@@ -198,12 +198,12 @@ function renderPlan() {
     </section>
 
     ${mealHead('obiad', 'Obiady', dinners.length)}
-    <div class="rail">${dinners.map(([m, i]) => dishCard(m, i)).join('')}</div>
-    ${breakfasts.length ? `${mealHead('sniadanie', 'Śniadania', breakfasts.length)}<div class="rail">${breakfasts.map(([m, i]) => dishCard(m, i)).join('')}</div>` : ''}
-    ${suppers.length ? `${mealHead('kolacja', 'Kolacje', suppers.length)}<div class="rail">${suppers.map(([m, i]) => dishCard(m, i)).join('')}</div>` : ''}
+    ${rail(dinners.map(([m, i]) => dishCard(m, i)).join(''))}
+    ${breakfasts.length ? `${mealHead('sniadanie', 'Śniadania', breakfasts.length)}${rail(breakfasts.map(([m, i]) => dishCard(m, i)).join(''))}` : ''}
+    ${suppers.length ? `${mealHead('kolacja', 'Kolacje', suppers.length)}${rail(suppers.map(([m, i]) => dishCard(m, i)).join(''))}` : ''}
 
     <div class="sec-head"><h2>Tydzień</h2><span class="muted small">${sessions.length === 1 ? 'gotujesz raz, potem odgrzewasz' : `gotujesz ${sessions.length}×: ${sessions.map((d) => dayShort(d)).join(', ')}`}</span></div>
-    <div class="week">${Array.from({ length: s.days }, (_, d) => dayRow(d)).join('')}</div>
+    ${rail(Array.from({ length: s.days }, (_, d) => dayRow(d)).join(''), 'week')}
 
     <div class="row" style="margin:24px 0 8px">
       <button class="btn" data-action="reroll">${icon('swap')} Wylosuj inne dania</button>
@@ -211,6 +211,10 @@ function renderPlan() {
       <button class="btn ghost" data-action="new-plan">Nowy plan</button>
     </div>`;
 }
+
+// A sideways strip; with a mouse it gets arrow buttons (touch and trackpads just swipe).
+const rail = (html, cls = 'rail') => `<div class="rail-wrap"><div class="${cls}">${html}</div>
+  <button class="rail-arrow prev" data-action="rail" data-dir="-1" aria-label="Wstecz">‹</button><button class="rail-arrow next" data-action="rail" data-dir="1" aria-label="Dalej">›</button></div>`;
 
 // Section heading with a lid in the meal's colour, matching the containers below it.
 const mealHead = (type, label, n) => `<div class="sec-head meal-head" style="--lid:var(--lid-${type})"><h2>${label}</h2><span class="muted small">${n} ${plural(n, 'danie', 'dania', 'dań')}</span></div>`;
@@ -300,7 +304,7 @@ function dayRow(d) {
       let note = '';
       if (batch.cookDay === d) note = d === 0 ? '' : '<em>ugotuj dziś</em>';
       if (batch.freeze && d + 1 > r.keeps) note = '<em>z zamrażarki</em>';
-      items.push(`<li class="${type}">${r.name}${note}</li>`);
+      items.push(`<li><button class="day-dish ${type}" data-action="recipe" data-id="${r.id}">${r.name}${note}</button></li>`);
     }
   }
   const n = dayNutrition(state.plan.meals, d);
@@ -494,7 +498,7 @@ function recentDishes() {
   return [...new Set(fresh.flatMap((h) => [...h.ids, ...h.names]))];
 }
 
-function makePlan() {
+async function makePlan() {
   // A plan from an earlier day was already in use, so it goes to history.
   // "Wylosuj inne dania" (Draw other dishes) on the same day just replaces it, and its dishes are set aside
   // so the next draw gives something new.
@@ -503,7 +507,7 @@ function makePlan() {
   if (state.seenToday?.day !== todayStart()) state.seenToday = { day: todayStart(), ids: [] };
   const s = { ...state.settings, excluded: [...recentDishes(), ...state.seenToday.ids], disliked: Object.keys(state.dislikes) };
   const prefs = tasteProfile();
-  const res = generatePlan({ ...s, prefs }, state.fridge);
+  const res = await generatePlanAsync({ ...s, prefs }, state.fridge);
   if (res.error) { toast(res.error); return false; }
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -622,10 +626,10 @@ function cookCard({ m, b, bi }) {
       </div>
       <ul class="ing-list">${Object.entries(r.ing).map(([id, q]) => `<li>${INGREDIENTS[buyId(id, state.plan.settings)].name}${INGREDIENTS[id].unit === 'szczypta' ? '' : ` — ${fmtQty(scaled(id, q, f), INGREDIENTS[id].unit)}`}</li>`).join('')}</ul>
       <div class="row" style="margin-top:10px">${r.source ? sourceBtn(r) : ''}
-        <label class="row small" style="gap:6px"><input type="checkbox" id="cooked-${key}" data-action="cooked" data-k="${key}" data-m="${state.plan.meals.indexOf(m)}" data-b="${bi}" ${cooked ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--ok)"> Ugotowane (zdejmij składniki z lodówki)</label></div>
+        <label class="cooked-row"><input type="checkbox" id="cooked-${key}" data-action="cooked" data-k="${key}" data-m="${state.plan.meals.indexOf(m)}" data-b="${bi}" ${cooked ? 'checked' : ''}><span>Ugotowane <span class="muted small">zdejmuje składniki z lodówki</span></span></label></div>
       <ol class="steps">${steps.map(([txt, min], i) => {
         const done = state.done[`${key}:${i}`];
-        return `<li class="${done ? 'done' : ''}"><input type="checkbox" id="step-${key}:${i}" data-action="step-done" data-k="${key}:${i}" ${done ? 'checked' : ''} aria-label="Krok ${i + 1}"><span>${txt}</span><span class="min">${min} min</span></li>`;
+        return `<li class="${done ? 'done' : ''}"><label><input type="checkbox" id="step-${key}:${i}" data-action="step-done" data-k="${key}:${i}" ${done ? 'checked' : ''} aria-label="Krok ${i + 1}"><span>${txt}</span><span class="min">${min} min</span></label></li>`;
       }).join('')}</ol>
     </article>`;
 }
@@ -930,16 +934,49 @@ sheet.addEventListener('pointermove', (e) => {
 });
 function endSheetDrag(e) {
   if (!sheetDrag || e.pointerId !== sheetDrag.id) return;
-  const [t0, y0] = sheetDrag.hist[0];
-  const [t1, y1] = sheetDrag.hist[sheetDrag.hist.length - 1];
-  const v = t1 > t0 ? ((y1 - y0) / (t1 - t0)) * 1000 : 0;
+  const hist = sheetDrag.hist;
   sheetDrag = null;
+  releaseSheet(hist);
+}
+// On release: velocity from the last few moves, then close or spring back.
+function releaseSheet(hist) {
+  if (!hist.length) return springSheet(0);
+  const [t0, y0] = hist[0];
+  const [t1, y1] = hist[hist.length - 1];
+  const v = t1 > t0 ? ((y1 - y0) / (t1 - t0)) * 1000 : 0;
   // The click that follows a grab of the sheet is not a tap on the backdrop.
   sheetJustDragged = true;
   setTimeout(() => { sheetJustDragged = false; }, 0);
   if (sheetY + project(v) > sheetHeight() * 0.4) closeSheet(v);
   else springSheet(0, v, { damping: 0.8, response: 0.3 });
 }
+// Dragging the content down while it's scrolled to the top pulls the sheet instead (as on iOS).
+// It starts only after 8 px downward, so ordinary scrolling isn't hijacked.
+let contentPull = null;
+sheet.addEventListener('touchstart', (e) => {
+  if (sheetDrag || e.touches.length > 1) return;
+  contentPull = { y0: e.touches[0].clientY, atTop: sheet.scrollTop <= 0, active: false, hist: [] };
+}, { passive: true });
+sheet.addEventListener('touchmove', (e) => {
+  if (!contentPull?.atTop) return;
+  const y = e.touches[0].clientY;
+  if (!contentPull.active) {
+    const dy = y - contentPull.y0;
+    if (dy < -4) { contentPull = null; return; }
+    if (dy < 8 || sheet.scrollTop > 0) return;
+    contentPull.active = true;
+    contentPull.offset = y - sheetY;
+    cancelAnimationFrame(sheetAnim);
+  }
+  e.preventDefault();
+  setSheetY(Math.max(0, y - contentPull.offset));
+  contentPull.hist.push([e.timeStamp, sheetY]);
+  if (contentPull.hist.length > 6) contentPull.hist.shift();
+}, { passive: false });
+sheet.addEventListener('touchend', () => {
+  if (contentPull?.active) releaseSheet(contentPull.hist);
+  contentPull = null;
+});
 sheet.addEventListener('pointerup', endSheetDrag);
 sheet.addEventListener('pointercancel', endSheetDrag);
 
@@ -1047,6 +1084,22 @@ function unconsumeBatch(key) {
 
 // ── Events ──
 
+// Drawing a plan takes a few hundred ms. The button says so at once, the screen keeps responding
+// (the search runs in slices), and further taps on it wait until it's done.
+let busy = false;
+async function whileBusy(btn, label, work) {
+  busy = true;
+  const old = btn?.innerHTML;
+  if (btn) { btn.classList.add('busy'); btn.setAttribute('aria-busy', 'true'); btn.innerHTML = `<span class="spinner" aria-hidden="true"></span>${label}`; }
+  document.body.classList.add('busy');
+  await new Promise((res) => requestAnimationFrame(() => setTimeout(res, 0)));
+  try { await work(); } finally {
+    busy = false;
+    document.body.classList.remove('busy');
+    if (btn?.isConnected) { btn.classList.remove('busy'); btn.removeAttribute('aria-busy'); btn.innerHTML = old; }
+  }
+}
+
 let toastTimer;
 // A short message at the bottom; with `undo` it gets a "Cofnij" (Undo) button and stays a bit longer.
 function toast(msg, undo) {
@@ -1063,14 +1116,15 @@ function toast(msg, undo) {
   t.classList.toggle('has-action', !!undo);
   t.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), undo ? 6000 : 2200);
+  // Long enough to read: about 60 ms per character, 2–6 s; with Undo always 6 s.
+  toastTimer = setTimeout(() => t.classList.remove('show'), undo ? 6000 : Math.min(6000, Math.max(2000, 1000 + msg.length * 60)));
 }
 
 // Actions that throw data away run through here: the state before them can be restored with "Cofnij".
-function withUndo(msg, change) {
+async function withUndo(msg, change) {
   const before = persisted();
   const snap = JSON.stringify(before);
-  if (change() === false) return;
+  if ((await change()) === false) return;
   save();
   toast(msg, () => {
     const data = JSON.parse(snap);
@@ -1112,7 +1166,7 @@ document.addEventListener('click', async (e) => {
       else {
         mine[id] = Date.now();
         delete other[id];
-        toast(a === 'like' ? 'Dodano do ulubionych. Kolejne plany częściej podpowiedzą podobne dania.' : 'To danie nie wróci w planach, a podobne będą rzadsze.');
+        toast(a === 'like' ? 'Dodano do ulubionych, podobne dania będą częściej' : 'To danie już nie wróci, podobne będą rzadziej');
       }
       save();
       if (sheet.open) openRecipe(id);
@@ -1127,7 +1181,10 @@ document.addEventListener('click', async (e) => {
     case 'avoid-del': readForm(); s.avoid = (s.avoid || []).filter((t) => t !== el.dataset.v); break;
     case 'rsource': state.recipeSource = el.dataset.v; state.recipeLimit = 40; break;
     case 'more': state.recipeLimit += 40; break;
-    case 'reroll': withUndo('Wylosowano nowe dania', makePlan); break;
+    case 'reroll':
+      if (busy) return;
+      await whileBusy(el, 'Losuję…', () => withUndo('Wylosowano nowe dania', makePlan));
+      break;
     case 'edit': state.settings = { ...state.plan.settings }; state.editing = true; break;
     case 'cancel-edit': state.editing = false; break;
     case 'new-plan': return openNewPlan();
@@ -1144,6 +1201,11 @@ document.addEventListener('click', async (e) => {
       break;
     }
     case 'recipe': return openRecipe(el.dataset.id);
+    case 'rail': {
+      const strip = el.parentElement.querySelector('.rail, .week');
+      strip.scrollBy({ left: +el.dataset.dir * strip.clientWidth * 0.85, behavior: reducedMotion() ? 'auto' : 'smooth' });
+      return;
+    }
     case 'close': return closeSheet();
     case 'copy-list':
       // On a phone this opens the share menu (e.g. to notes or a messenger).
@@ -1193,11 +1255,12 @@ document.addEventListener('change', (e) => {
   route();
 });
 
-document.addEventListener('submit', (e) => {
+document.addEventListener('submit', async (e) => {
   e.preventDefault();
   if (e.target.id === 'plan-form') {
+    if (busy) return;
     readForm();
-    makePlan();
+    await whileBusy(e.target.querySelector('button[type=submit]'), 'Układam plan…', makePlan);
     window.scrollTo(0, 0);
   } else if (e.target.id === 'fridge-form') {
     const first = fridgeMatches(e.target.q.value)[0];
@@ -1238,7 +1301,13 @@ sheet.addEventListener('click', (e) => { if (e.target === sheet && !sheetJustDra
 const topBar = document.querySelector('.top');
 addEventListener('scroll', () => topBar.classList.toggle('scrolled', scrollY > 4), { passive: true });
 document.addEventListener('toggle', (e) => { if (e.target.id === 'form-more') state.formMore = e.target.open; }, true);
-window.addEventListener('hashchange', () => { route(); window.scrollTo(0, 0); });
+// Each tab keeps its own scroll position, like tabs on iOS.
+const tabScroll = {};
+window.addEventListener('hashchange', () => {
+  if (lastTab) tabScroll[lastTab] = scrollY;
+  route();
+  window.scrollTo(0, tabScroll[lastTab] || 0);
+});
 route();
 connectRemote();
 

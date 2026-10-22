@@ -45,7 +45,7 @@ function load(saved = readLocal()) {
 }
 // Everything worth keeping: the state without view-only fields (filters, search, open form).
 function persisted() {
-  const { recipeFilter, recipeSource, recipeQuery, recipeLimit, recipePrice, recipeTaste, editing, quickType, quickMode, quickLimit, quickPrice, quickTaste, ...rest } = state;
+  const { recipeFilter, recipeSource, recipeQuery, recipeLimit, recipePrice, recipeTaste, editing, quickType, quickMode, quickLimit, quickPrice, quickTaste, confirmClear, ...rest } = state;
   return rest;
 }
 function save() {
@@ -79,15 +79,23 @@ async function connectRemote() {
   try { snap = await ref.get(); } catch { return; }
   remote = ref;
   const saved = snap.exists ? snap.data() : null;
-  if (saved && (saved.savedAt || 0) > state.savedAt) {
-    const ui = { recipeFilter: state.recipeFilter, recipeSource: state.recipeSource, recipeQuery: state.recipeQuery, recipeLimit: state.recipeLimit };
-    Object.assign(state, load(saved), ui);
-    try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch {}
-    dropStalePlan();
-    if (!sheet.open) route();
-  } else if (state.savedAt) {
-    pushRemote(persisted());
-  }
+  if (saved && (saved.savedAt || 0) > state.savedAt) applyRemote(saved);
+  else if (state.savedAt) pushRemote(persisted());
+  // The app may be open in more than one place (the chat and full screen, phone and computer).
+  // Follow saves made elsewhere, so a copy left open with old data doesn't overwrite newer changes.
+  ref.onSnapshot((s) => {
+    const d = s.exists ? s.data() : null;
+    if (d && (d.savedAt || 0) > state.savedAt) applyRemote(d);
+  }, () => {});
+}
+function applyRemote(saved) {
+  const restored = load(saved);
+  for (const k of Object.keys(saved)) state[k] = restored[k];
+  try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch {}
+  dropStalePlan();
+  // Don't pull the page from under someone typing or using the sheet.
+  const typing = document.activeElement?.matches?.('input, textarea');
+  if (!sheet.open && !typing) route();
 }
 
 // ── Dates ──
@@ -656,7 +664,9 @@ function renderFridge() {
           : '<div class="fridge-empty">Lodówka jest pusta. Dodaj pierwszy produkt powyżej albo odhacz zakupy na liście.</div>'}
       </section>
     </div>
-    ${entries.length ? '<button class="btn ghost" data-action="fridge-clear">Wyczyść lodówkę</button>' : ''}`;
+    ${entries.length ? `<div class="fridge-clear">${state.confirmClear
+      ? '<span class="muted small">Usunąć wszystkie produkty?</span><button class="btn small" data-action="fridge-clear-cancel">Nie</button><button class="btn small danger" data-action="fridge-clear">Tak, wyczyść</button>'
+      : '<button class="btn small ghost" data-action="fridge-clear-ask">Wyczyść lodówkę…</button>'}</div>` : ''}`;
 }
 
 // "jajka 6", "mleko 1,5 l", "2 kg ziemniaków" → name + quantity in the product's unit.
@@ -1147,7 +1157,9 @@ document.addEventListener('click', async (e) => {
       return;
     case 'fridge-add': return addToFridge(el.dataset.id, parseFloat(el.dataset.q));
     case 'fridge-del': withUndo(`Usunięto z lodówki: ${INGREDIENTS[el.dataset.id].name}`, () => { delete state.fridge[el.dataset.id]; }); break;
-    case 'fridge-clear': withUndo('Lodówka wyczyszczona', () => { state.fridge = {}; }); break;
+    case 'fridge-clear-ask': state.confirmClear = true; break;
+    case 'fridge-clear-cancel': state.confirmClear = false; break;
+    case 'fridge-clear': state.confirmClear = false; withUndo('Lodówka wyczyszczona', () => { state.fridge = {}; }); break;
     case 'qtype': state.quickType = el.dataset.v; state.quickLimit = 30; break;
     case 'qmode': state.quickMode = el.dataset.v; state.quickLimit = 30; break;
     case 'qmore': state.quickLimit = (state.quickLimit || 30) + 30; break;

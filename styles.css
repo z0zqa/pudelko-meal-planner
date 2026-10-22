@@ -340,8 +340,8 @@ main {
 .to-buy strong { font: 800 2.6rem/1 var(--display); font-stretch: 75%; font-variant-numeric: tabular-nums; margin-right: 6px; }
 .to-buy .btn { background: var(--hero-btn-bg); color: var(--hero-btn-ink); }
 .receipt {
-  position: relative; background: var(--paper); color: var(--text); margin: 18px 6px 30px;
-  padding: 22px 16px 16px; box-shadow: var(--shadow); transform: rotate(-.4deg);
+  position: relative; background: var(--paper); color: var(--text); margin: 18px 0 30px;
+  padding: 22px 16px 16px; box-shadow: var(--shadow);
 }
 .receipt::after {
   content: ""; position: absolute; left: 0; right: 0; bottom: -10px; height: 10px;
@@ -518,3 +518,7 @@ details.more .input { background: var(--surface); }
   .top { background: var(--bg); backdrop-filter: none; border-bottom: 1px solid var(--text); }
 }
 .dish-card .btn.small { padding: 8px 13px; }
+
+/* Clearing the fridge: kept away from the dock and confirmed in place */
+.fridge-clear { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.btn.danger { background: var(--warn); color: var(--surface); }

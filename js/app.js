@@ -1,7 +1,7 @@
 import { INGREDIENTS, CATEGORIES, TAG_LABELS } from './data.js';
 import { PRICES_DATE } from './prices.js';
 import {
-  ALL_RECIPES, siteOf, SITES, LOADED_SITES, buildProfile, describeProfile, affinity, taste, TASTE_LABELS, priceTier, PRICE_LABELS, PRICE_LIMITS, EFFORT, norm, buyId, isQuickHealthy, healthInfo, ingCount, fitsEquipment, avoidStems, containsAvoided, recipeTime, recipeById, scaled, nutrition, dayNutrition, generatePlanAsync, mealShares, shoppingList, swapOptions, costPerPortion, cookDays,
+  ALL_RECIPES, siteOf, SITES, LOADED_SITES, buildProfile, describeProfile, affinity, taste, TASTE_LABELS, priceTier, PRICE_LABELS, PRICE_LIMITS, EFFORT, norm, buyId, isQuickHealthy, healthInfo, ingCount, fitsEquipment, avoidStems, containsAvoided, recipeTime, recipeById, scaled, nutrition, dayNutrition, generatePlanAsync, fromFridge, mealShares, shoppingList, swapOptions, costPerPortion, cookDays,
   fmtQty, fmtZl, round2,
 } from './planner.js';
 
@@ -188,6 +188,7 @@ function renderPlan() {
       <div class="hero-num">${fmtZl(list.total).replace(' zł', '')}<small>zł</small></div>
       <div class="bar ${left < 0 ? 'over' : ''}"><i style="width:${pct}%"></i></div>
       <div class="hero-sub">z ${fmtZl(s.budget)} · ok. ${fmtZl(list.total / (s.days * s.people))} na osobę dziennie</div>
+      ${fridgeLine(p)}
       ${nutritionSummary(p)}
       ${prefsLine(s)}
       ${left < 0 ? `<p class="notice" style="margin:12px 0 0">Przy ${s.kcal.toLocaleString('pl-PL')} kcal dziennie ten plan kosztuje ok. ${fmtZl(list.total / (s.days * s.people))} na osobę dziennie, więc nie mieści się w budżecie. Podnieś budżet do ok. ${Math.ceil(list.total / 10) * 10} zł albo skróć okres.</p>` : ''}
@@ -220,6 +221,13 @@ const rail = (html, cls = 'rail') => `<div class="rail-wrap"><div class="${cls}"
 const mealHead = (type, label, n) => `<div class="sec-head meal-head" style="--lid:var(--lid-${type})"><h2>${label}</h2><span class="muted small">${n} ${plural(n, 'danie', 'dania', 'dań')}</span></div>`;
 // A tear-off calendar page: weekday on top, day of the month below.
 const calPage = (d) => `<div class="cal"><b>${dayShort(d)}</b><span>${dayDate(d).getDate()}</span></div>`;
+
+// What the plan takes from the fridge, so it's clear the leftovers get used.
+function fridgeLine(p) {
+  const used = fromFridge(p.meals, p.fridge || {}, p.settings);
+  if (!used.length) return '';
+  return `<div class="hero-fridge">${icon('fridge')}<span>Z lodówki: ${used.map((u) => `${u.name.split(' (')[0].toLowerCase()} ${fmtQty(u.qty, u.unit)}`).join(', ')}</span></div>`;
+}
 
 function prefsLine(s) {
   const bits = [];
@@ -849,6 +857,7 @@ const ICONS = {
   thumbDown: '<path d="M8 14V4M8 14l3.6 6a2 2 0 0 0 2.4-1.9V14h4.6a2 2 0 0 0 2-2.3l-1-6.2A2 2 0 0 0 17.6 4H8M8 4H4.5v10H8"/>',
   out: '<path d="M7 17 17 7M8.5 7H17v8.5"/>',
   list: '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r=".9"/><circle cx="4.5" cy="12" r=".9"/><circle cx="4.5" cy="18" r=".9"/>',
+  fridge: '<rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M6 9.5h12M9 5.5v2M9 12.5v3"/>',
   basket: '<path d="M4 9h16l-1.6 9.2a2 2 0 0 1-2 1.8H7.6a2 2 0 0 1-2-1.8z"/><path d="M8.5 9 12 4l3.5 5"/>',
   pot: '<path d="M4 10h16v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z"/><path d="M2 10h20M9 7c0-1 1-1.5 1-2.5M14 7c0-1 1-1.5 1-2.5"/>',
 };

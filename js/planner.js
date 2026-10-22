@@ -282,6 +282,17 @@ export function shoppingList(meals, fridge = {}, s) {
   return { items, pantry, total: round2(total) };
 }
 
+// Value (zł) of perishable products the plan takes from the fridge.
+const PERISHABLE = new Set(['warzywa', 'mieso', 'nabial']);
+function fridgeUse(items) {
+  return items.reduce((a, it) => (it.have && PERISHABLE.has(it.cat) ? a + (Math.min(it.need, it.have) / it.pack) * it.price : a), 0);
+}
+
+// Products from the fridge a plan uses, with amounts (for "Z lodówki" on the plan).
+export function fromFridge(meals, fridge, s) {
+  return shoppingList(meals, fridge, s).items.filter((it) => it.have > 0).map((it) => ({ id: it.id, name: it.name, unit: it.unit, qty: Math.min(it.need, it.have) }));
+}
+
 export function planCost(meals, fridge, s) {
   return shoppingList(meals, fridge, s).total;
 }
@@ -478,11 +489,15 @@ function* planSearch(s, fridge, rng, tries) {
   };
   const scales = {};
   const norm1 = (r, sc) => Math.max(-1, Math.min(1, affinity(r, prefs) / sc));
+  // What's in the fridge: dishes that use it are drawn more often, up to 7× for three or more products.
+  const inFridge = (r) => Object.keys(r.ing).filter((id) => !INGREDIENTS[id].pantry && fridge[buyId(id, s)] > 0).length;
+  const hasFridge = Object.values(fridge).some((q) => q > 0);
   const weighter = (pool, key) => {
-    if (!prefs?.liked || !pool.length) return null;
-    const sc = (scales[key] = scaleOf(pool));
+    if ((!prefs?.liked && !hasFridge) || !pool.length) return null;
+    const sc = prefs?.liked ? (scales[key] = scaleOf(pool)) : 0;
     // Favorite dishes themselves get an extra chance (the 2-week rotation still applies).
-    return (r) => Math.exp(3 * norm1(r, sc)) * (prefs.likedSet.has(r.id) ? 6 : 1);
+    const taste = prefs?.liked ? (r) => Math.exp(3 * norm1(r, sc)) * (prefs.likedSet.has(r.id) ? 6 : 1) : () => 1;
+    return (r) => taste(r) * (1 + 2 * Math.min(3, inFridge(r)));
   };
   const wd = weighter(dinners, 'obiad'), wb = weighter(breakfasts, 'sniadanie'), wk = weighter(suppers, 'kolacja');
   const samplers = new Map();
@@ -520,7 +535,8 @@ function* planSearch(s, fridge, rng, tries) {
     };
     if (strict && (same(d) || same([...b, ...k]) || dup([...d, ...b, ...k].map((id) => dishKind(recipeById[id]))))) continue;
     const meals = buildMeals(d, b, s, k);
-    const cost = planCost(meals, fridge, s);
+    const list = shoppingList(meals, fridge, s);
+    const cost = list.total;
     // Ranking penalties: each extra cooking session in the week and calorie shortfall versus the target.
     let score = cost + (s.effort === 'min' || s.effort === 'ultra' ? 12 : 5) * (cookDays(meals).length - 1);
     if (s.kcal) {
@@ -532,6 +548,9 @@ function* planSearch(s, fridge, rng, tries) {
       const dev = devs.reduce((a, x) => a + x, 0) / s.days + Math.max(...devs) / 2;
       score += (dev / goal) * s.budget * 3;
     }
+    // Using up what would spoil (vegetables, meat, dairy) counts on top of the money it saves:
+    // half its value again, so a plan that empties the fridge wins over one that's a few zł cheaper.
+    if (hasFridge) score -= 0.5 * fridgeUse(list.items);
     if (prefs?.liked) {
       // Bonus for matching taste, in zł relative to the budget.
       const parts = [[d, scales.obiad], [b, scales.sniadanie], [k, scales.kolacja]].filter(([ids, sc]) => ids.length && sc);

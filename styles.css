@@ -557,3 +557,7 @@ body.busy #view .dish-card, body.busy #view .week { opacity: .55; transition: op
 @media (prefers-reduced-transparency: reduce) {
   .tabs { background: var(--surface); backdrop-filter: none; }
 }
+
+/* Leftovers the plan uses */
+.hero-fridge { display: flex; gap: 8px; align-items: flex-start; margin-top: 12px; padding: 10px 12px; border-radius: 16px; font-size: .85rem; background: color-mix(in srgb, var(--hero-ink) 12%, transparent); }
+.hero-fridge svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; margin-top: 1px; }

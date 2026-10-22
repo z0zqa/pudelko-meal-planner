@@ -133,11 +133,16 @@ function dropStalePlan() {
 }
 dropStalePlan();
 
+let lastTab = null;
 function route() {
   const tab = (location.hash || '#plan').slice(1);
   document.querySelectorAll('.tabs a').forEach((a) => a.classList.toggle('active', a.dataset.tab === tab));
   const render = { plan: renderPlan, zakupy: renderShopping, gotowanie: renderCooking, lodowka: renderFridge, przepisy: renderRecipes, szybkie: renderQuick }[tab] || renderPlan;
+  // Re-rendering after a tap must not throw the sideways rails back to their start.
+  const kept = tab === lastTab ? [...view.querySelectorAll('.rail, .week')].map((el) => el.scrollLeft) : [];
   view.innerHTML = render();
+  view.querySelectorAll('.rail, .week').forEach((el, i) => { if (kept[i]) el.scrollLeft = kept[i]; });
+  lastTab = tab;
   renderTopInfo();
 }
 
@@ -269,10 +274,9 @@ function dishCard(m, i) {
         <div class="meta"><span class="num">${kcalTxt(mealNutrition(m))}</span> · <span class="num">${fmtZl(costPerPortion(r, s) * (m.factor || 1))}</span>/porcja · <span class="tier tier-${tier}">${PRICE_LABELS[tier]}</span>${r.type === 'sniadanie' ? ` · ${TASTE_LABELS[taste(r)]}` : ''}</div>
         ${notes.length ? `<div class="dish-notes">${notes.join(' · ')}</div>` : ''}
         <div class="actions">
-          ${iconBtn('swap', `Zamień: ${r.name}`, `data-action="swap" data-i="${i}"`, 'solid')}
+          <button class="btn small primary" data-action="swap" data-i="${i}">${icon('swap')} Zamień</button>
           ${rateButtons(r)}
-          ${iconBtn('list', `Składniki: ${r.name}`, `data-action="recipe" data-id="${r.id}"`)}
-          ${r.source ? iconLink('out', SITES[siteOf(r)].link, r.source) : ''}
+          ${iconBtn('list', r.source ? `Składniki i link do przepisu: ${r.name}` : `Przepis: ${r.name}`, `data-action="recipe" data-id="${r.id}"`)}
         </div>
       </div>
     </article>`;
@@ -322,6 +326,13 @@ function renderForm() {
         <div class="stepper"><button type="button" data-action="step" data-k="people" data-d="-1" aria-label="Mniej osób">−</button><output>${s.people}</output><button type="button" data-action="step" data-k="people" data-d="1" aria-label="Więcej osób">+</button></div>
       </div>
       <div class="field">
+        <div class="label">Kalorie dziennie</div>
+        <div class="chips">${KCAL_OPTIONS.map((v) => `<button type="button" class="chip" data-action="kcal" data-v="${v}" aria-pressed="${s.kcal === v}">${v.toLocaleString('pl-PL')}</button>`).join('')}</div>
+        <p class="muted small" style="margin:6px 0 0">Porcje dobieramy tak, żeby posiłki z planu dały razem ${s.kcal.toLocaleString('pl-PL')} kcal: śniadanie ok. ${Math.round(s.kcal * 0.3)}, obiad ok. ${Math.round(s.kcal * 0.4)}, kolacja ok. ${Math.round(s.kcal * 0.3)}. Gdy przy Twoich filtrach brakuje śniadań lub kolacji, bierzemy je z innych źródeł.</p>
+      </div>
+      <details class="more" id="form-more" ${state.formMore ? 'open' : ''}>
+        <summary><span>Więcej ustawień</span><span class="more-sum">${formSummary(s)}</span></summary>
+      <div class="field">
         <div class="label">Co jesz?</div>
         <div class="chips">${dietChip('all', 'Wszystko')}${dietChip('wege', 'Wege')}${dietChip('wegan', 'Wegańskie')}</div>
       </div>
@@ -348,11 +359,6 @@ function renderForm() {
         <label class="switch"><span>Air fryer<br><span class="muted small">bez piekarnika bierzemy z jego przepisów tylko to, co da się zrobić w air fryerze</span></span><input type="checkbox" name="airfryer" ${s.airfryer ? 'checked' : ''}></label>
       </div>
       <div class="field">
-        <div class="label">Kalorie dziennie</div>
-        <div class="chips">${KCAL_OPTIONS.map((v) => `<button type="button" class="chip" data-action="kcal" data-v="${v}" aria-pressed="${s.kcal === v}">${v.toLocaleString('pl-PL')}</button>`).join('')}</div>
-        <p class="muted small" style="margin:6px 0 0">Porcje dobieramy tak, żeby posiłki z planu dały razem ${s.kcal.toLocaleString('pl-PL')} kcal: śniadanie ok. ${Math.round(s.kcal * 0.3)}, obiad ok. ${Math.round(s.kcal * 0.4)}, kolacja ok. ${Math.round(s.kcal * 0.3)}. Gdy przy Twoich filtrach brakuje śniadań lub kolacji, bierzemy je z innych źródeł.</p>
-      </div>
-      <div class="field">
         <div class="label">Śniadania</div>
         <div class="chips">${tasteChip('breakfastTaste', 'any', 'Obojętnie')}${tasteChip('breakfastTaste', 'slodkie', 'Na słodko')}${tasteChip('breakfastTaste', 'slone', 'Na słono')}</div>
         <div class="label" style="margin-top:12px">Kolacje</div>
@@ -373,11 +379,25 @@ function renderForm() {
       </div>
       ${tasteNote()}
       ${historyNote()}
+      </details>
       <button class="btn primary block" type="submit">Ułóż plan</button>
       ${state.plan ? '<button class="btn ghost block" type="button" data-action="cancel-edit" style="margin-top:8px">Anuluj</button>' : ''}
     </form>
     ${Object.keys(state.fridge).length ? `<p class="muted small">🧊 Uwzględnimy to, co masz w <a href="#lodowka">lodówce</a> (${Object.keys(state.fridge).length} ${plural(Object.keys(state.fridge).length, 'produkt', 'produkty', 'produktów')}).</p>` : ''}
-    <p class="muted small">Bez konta, bez reklam, działa offline. Ceny są orientacyjne (tani dyskont).</p>`;
+    <p class="muted small">Bez konta i bez reklam. Ceny z Biedronki online${PRICES_DATE ? ` (${new Date(PRICES_DATE).toLocaleDateString('pl-PL')})` : ''}.</p>`;
+}
+
+// One line of what's set under "Więcej ustawień" (More settings), so the closed section isn't a mystery.
+function formSummary(s) {
+  const bits = [];
+  if (s.diet !== 'all') bits.push(s.diet === 'wege' ? 'wege' : 'wegańskie');
+  if (s.avoid?.length) bits.push(`bez: ${s.avoid.join(', ')}`);
+  if (s.lactoseFree) bits.push('bez laktozy');
+  bits.push({ ultra: 'ultra szybko', min: 'minimum gotowania', normal: 'normalnie', any: 'bez limitu czasu' }[s.effort || 'any']);
+  bits.push(s.oven === false ? (s.airfryer ? 'air fryer, bez piekarnika' : 'bez piekarnika') : s.airfryer ? 'piekarnik i air fryer' : 'piekarnik');
+  if (s.price && s.price !== 'any') bits.push(`${PRICE_LABELS[s.price]} dania`);
+  if (s.glutenFree) bits.push('bez glutenu');
+  return bits.join(' · ');
 }
 
 function addAvoid(text) {
@@ -476,7 +496,7 @@ function makePlan() {
   const s = { ...state.settings, excluded: [...recentDishes(), ...state.seenToday.ids], disliked: Object.keys(state.dislikes) };
   const prefs = tasteProfile();
   const res = generatePlan({ ...s, prefs }, state.fridge);
-  if (res.error) return toast(res.error);
+  if (res.error) { toast(res.error); return false; }
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   state.plan = { settings: s, meals: res.meals, start: today.getTime(), fridge: { ...state.fridge } };
@@ -778,8 +798,7 @@ function renderQuick() {
           <div class="meta">${ingCount(r)} ${plural(ingCount(r), 'produkt', 'produkty', 'produktów')} · <span class="num">${h.protein} g</span> białka · <span class="num">${h.kcal}</span> kcal · <span class="num">${fmtZl(costPerPortion(r, s))}</span> · <span class="tier tier-${priceTier(r, s)}">${PRICE_LABELS[priceTier(r, s)]}</span>${r.type === 'sniadanie' ? ` · ${TASTE_LABELS[taste(r)]}` : ''}${siteTag(r)}</div>
           ${equipmentPill(r, s) ? `<div class="dish-notes">${equipmentPill(r, s).replace(/<[^>]+>/g, '')}</div>` : ''}
           <div class="actions">
-            ${r.source ? iconLink('out', SITES[siteOf(r)].link, r.source) : ''}
-            ${iconBtn('list', `Przepis: ${r.name}`, `data-action="recipe" data-id="${r.id}"`, r.source ? '' : 'solid')}
+            ${r.source ? `<a class="btn small primary" href="${r.source}" target="_blank" rel="noopener">${icon('out')} Przepis</a>${iconBtn('list', `Składniki: ${r.name}`, `data-action="recipe" data-id="${r.id}"`)}` : `<button class="btn small primary" data-action="recipe" data-id="${r.id}">${icon('list')} Przepis</button>`}
             ${rateButtons(r)}
           </div>
         </div>
@@ -830,10 +849,89 @@ function emptyState(icon, text) {
 
 // ── Sheets ──
 
-function openSheet(html) {
-  sheet.innerHTML = `<div class="inner">${html}</div>`;
-  sheet.showModal();
+// The bottom sheet slides up from the bottom edge and leaves the same way. It can be grabbed by its top
+// at any moment (also mid-animation), follows the finger 1:1, and on release a flick projects where it
+// would land: past 40% of its height it closes, otherwise it springs back.
+const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+let sheetY = 0;
+let sheetAnim = 0;
+let sheetDrag = null;
+let sheetJustDragged = false;
+function setSheetY(y) {
+  sheetY = y;
+  sheet.style.transform = y ? `translateY(${y}px)` : '';
 }
+const sheetHeight = () => sheet.getBoundingClientRect().height + 24;
+// Spring with Apple's two parameters: damping ratio (1 = no overshoot) and response in seconds.
+// It always starts from the sheet's current position and velocity, so it can be interrupted.
+function springSheet(to, velocity = 0, { damping = 1, response = 0.35 } = {}) {
+  cancelAnimationFrame(sheetAnim);
+  return new Promise((done) => {
+    if (reducedMotion()) { setSheetY(to); done(); return; }
+    const k = (2 * Math.PI / response) ** 2;
+    const c = 2 * damping * Math.sqrt(k);
+    let v = velocity;
+    let last = performance.now();
+    const step = (now) => {
+      const dt = Math.min(0.032, (now - last) / 1000);
+      last = now;
+      v += (-k * (sheetY - to) - c * v) * dt;
+      setSheetY(sheetY + v * dt);
+      if (Math.abs(sheetY - to) < 0.5 && Math.abs(v) < 20) { setSheetY(to); done(); return; }
+      sheetAnim = requestAnimationFrame(step);
+    };
+    sheetAnim = requestAnimationFrame(step);
+  });
+}
+// Where a flick would come to rest (Apple's projection, scroll-like deceleration).
+const project = (v, rate = 0.998) => (v / 1000) * rate / (1 - rate);
+// Past the top edge the sheet resists more the further it is pulled.
+const rubberband = (over, dim, c = 0.55) => (over * dim * c) / (dim + c * Math.abs(over));
+
+function openSheet(html) {
+  const wasOpen = sheet.open;
+  sheet.innerHTML = `<div class="grab" aria-hidden="true"></div><div class="inner">${html}</div>`;
+  if (wasOpen) return;
+  sheet.showModal();
+  setSheetY(sheetHeight());
+  springSheet(0);
+}
+async function closeSheet(velocity = 0) {
+  if (!sheet.open) return;
+  await springSheet(sheetHeight(), Math.max(velocity, 0), { damping: 1, response: 0.3 });
+  sheet.close();
+  setSheetY(0);
+}
+sheet.addEventListener('cancel', (e) => { e.preventDefault(); closeSheet(); });
+sheet.addEventListener('pointerdown', (e) => {
+  // Grab by the handle or the header, never by a button or field.
+  const fromTop = e.clientY - sheet.getBoundingClientRect().top;
+  if (fromTop > 72 || e.target.closest('button, a, input, select')) return;
+  cancelAnimationFrame(sheetAnim);
+  sheetDrag = { id: e.pointerId, offset: e.clientY - sheetY, hist: [[e.timeStamp, sheetY]] };
+  sheet.setPointerCapture(e.pointerId);
+});
+sheet.addEventListener('pointermove', (e) => {
+  if (!sheetDrag || e.pointerId !== sheetDrag.id) return;
+  const y = e.clientY - sheetDrag.offset;
+  setSheetY(y < 0 ? -rubberband(-y, sheetHeight()) : y);
+  sheetDrag.hist.push([e.timeStamp, sheetY]);
+  if (sheetDrag.hist.length > 6) sheetDrag.hist.shift();
+});
+function endSheetDrag(e) {
+  if (!sheetDrag || e.pointerId !== sheetDrag.id) return;
+  const [t0, y0] = sheetDrag.hist[0];
+  const [t1, y1] = sheetDrag.hist[sheetDrag.hist.length - 1];
+  const v = t1 > t0 ? ((y1 - y0) / (t1 - t0)) * 1000 : 0;
+  sheetDrag = null;
+  // The click that follows a grab of the sheet is not a tap on the backdrop.
+  sheetJustDragged = true;
+  setTimeout(() => { sheetJustDragged = false; }, 0);
+  if (sheetY + project(v) > sheetHeight() * 0.4) closeSheet(v);
+  else springSheet(0, v, { damping: 0.8, response: 0.3 });
+}
+sheet.addEventListener('pointerup', endSheetDrag);
+sheet.addEventListener('pointercancel', endSheetDrag);
 
 function openSwap(i) {
   const p = state.plan;
@@ -883,15 +981,16 @@ function openNewPlan() {
 }
 
 function startNewPlan(consumeRest) {
-  archivePlan();
-  if (consumeRest) for (const x of uncookedBatches()) consumeBatch(x.m, x.b, `${x.m.recipeId}#${x.bi}`);
-  state.plan = null;
-  state.checked = {};
-  state.done = {};
-  state.bought = {};
-  state.consumed = {};
-  save();
-  if (sheet.open) sheet.close();
+  withUndo('Zaczynasz nowy plan', () => {
+    archivePlan();
+    if (consumeRest) for (const x of uncookedBatches()) consumeBatch(x.m, x.b, `${x.m.recipeId}#${x.bi}`);
+    state.plan = null;
+    state.checked = {};
+    state.done = {};
+    state.bought = {};
+    state.consumed = {};
+  });
+  closeSheet();
   location.hash = '#plan';
   route();
 }
@@ -939,12 +1038,38 @@ function unconsumeBatch(key) {
 // ── Events ──
 
 let toastTimer;
-function toast(msg) {
+// A short message at the bottom; with `undo` it gets a "Cofnij" (Undo) button and stays a bit longer.
+function toast(msg, undo) {
   const t = document.getElementById('toast');
-  t.textContent = msg;
+  t.replaceChildren(msg);
+  if (undo) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'toast-undo';
+    b.textContent = 'Cofnij';
+    b.addEventListener('click', () => { t.classList.remove('show'); undo(); });
+    t.append(b);
+  }
+  t.classList.toggle('has-action', !!undo);
   t.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+  toastTimer = setTimeout(() => t.classList.remove('show'), undo ? 6000 : 2200);
+}
+
+// Actions that throw data away run through here: the state before them can be restored with "Cofnij".
+function withUndo(msg, change) {
+  const before = persisted();
+  const snap = JSON.stringify(before);
+  if (change() === false) return;
+  save();
+  toast(msg, () => {
+    const data = JSON.parse(snap);
+    const restored = load(data);
+    for (const k of Object.keys(data)) state[k] = restored[k];
+    save();
+    route();
+    toast('Cofnięto');
+  });
 }
 
 document.addEventListener('click', async (e) => {
@@ -984,15 +1109,15 @@ document.addEventListener('click', async (e) => {
       break;
     }
     case 'show-favs': state.recipeFilter = 'fav'; state.recipeLimit = 40; location.hash = '#przepisy'; return;
-    case 'clear-taste': readForm(); state.likes = {}; state.dislikes = {}; toast('Oceny zapomniane'); break;
-    case 'clear-history': readForm(); state.history = []; toast('Historia wyczyszczona'); break;
+    case 'clear-taste': readForm(); withUndo('Oceny zapomniane', () => { state.likes = {}; state.dislikes = {}; }); break;
+    case 'clear-history': readForm(); withUndo('Historia wyczyszczona', () => { state.history = []; }); break;
     case 'rprice': state.recipePrice = el.dataset.v; state.recipeLimit = 40; break;
     case 'qprice': state.quickPrice = el.dataset.v; state.quickLimit = 30; break;
     case 'avoid-add': readForm(); break;
     case 'avoid-del': readForm(); s.avoid = (s.avoid || []).filter((t) => t !== el.dataset.v); break;
     case 'rsource': state.recipeSource = el.dataset.v; state.recipeLimit = 40; break;
     case 'more': state.recipeLimit += 40; break;
-    case 'reroll': makePlan(); toast('Wylosowano nowe dania'); break;
+    case 'reroll': withUndo('Wylosowano nowe dania', makePlan); break;
     case 'edit': state.settings = { ...state.plan.settings }; state.editing = true; break;
     case 'cancel-edit': state.editing = false; break;
     case 'new-plan': return openNewPlan();
@@ -1000,16 +1125,16 @@ document.addEventListener('click', async (e) => {
     case 'swap': return openSwap(+el.dataset.i);
     case 'do-swap': {
       const o = swapOptions(state.plan, +el.dataset.i, state.plan.fridge).find((x) => x.recipe.id === el.dataset.id);
-      state.plan.meals = o.meals;
-      state.done = {};
-      state.consumed = {};
-      save();
-      sheet.close();
-      toast(`Zamieniono na: ${o.recipe.name}`);
+      withUndo(`Zamieniono na: ${o.recipe.name}`, () => {
+        state.plan.meals = o.meals;
+        state.done = {};
+        state.consumed = {};
+      });
+      closeSheet();
       break;
     }
     case 'recipe': return openRecipe(el.dataset.id);
-    case 'close': return sheet.close();
+    case 'close': return closeSheet();
     case 'copy-list':
       // On a phone this opens the share menu (e.g. to notes or a messenger).
       if (navigator.share) {
@@ -1021,8 +1146,8 @@ document.addEventListener('click', async (e) => {
       catch { toast('Nie udało się skopiować'); }
       return;
     case 'fridge-add': return addToFridge(el.dataset.id, parseFloat(el.dataset.q));
-    case 'fridge-del': delete state.fridge[el.dataset.id]; save(); break;
-    case 'fridge-clear': state.fridge = {}; save(); break;
+    case 'fridge-del': withUndo(`Usunięto z lodówki: ${INGREDIENTS[el.dataset.id].name}`, () => { delete state.fridge[el.dataset.id]; }); break;
+    case 'fridge-clear': withUndo('Lodówka wyczyszczona', () => { state.fridge = {}; }); break;
     case 'qtype': state.quickType = el.dataset.v; state.quickLimit = 30; break;
     case 'qmode': state.quickMode = el.dataset.v; state.quickLimit = 30; break;
     case 'qmore': state.quickLimit = (state.quickLimit || 30) + 30; break;
@@ -1095,7 +1220,12 @@ document.addEventListener('input', (e) => {
   }, 150);
 });
 
-sheet.addEventListener('click', (e) => { if (e.target === sheet) sheet.close(); });
+sheet.addEventListener('click', (e) => { if (e.target === sheet && !sheetJustDragged) closeSheet(); });
+
+// Header edge: a soft fade under the floating header, only once content scrolls beneath it.
+const topBar = document.querySelector('.top');
+addEventListener('scroll', () => topBar.classList.toggle('scrolled', scrollY > 4), { passive: true });
+document.addEventListener('toggle', (e) => { if (e.target.id === 'form-more') state.formMore = e.target.open; }, true);
 window.addEventListener('hashchange', () => { route(); window.scrollTo(0, 0); });
 route();
 connectRemote();

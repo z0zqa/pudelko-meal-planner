@@ -1,3 +1,5 @@
+import { PRICES } from './prices.js';
+
 // Approximate prices (cheap discount store, 2026). Every product is bought in whole packages.
 // whole: true — bought and used up whole (eggs, tortillas), so quantities are rounded up.
 // kcal, protein: per 100 g (for pieces, converted via gPerSzt).
@@ -166,6 +168,9 @@ Object.assign(INGREDIENTS, {
   serekWiejskiBL: LF('serekWiejski', 'Serek wiejski bez laktozy', 4.49),
   mozzarellaBL: LF('mozzarella', 'Mozzarella bez laktozy', 4.49),
 });
+// Current store prices (js/prices.js, from tools/update-prices.mjs) replace the estimates above.
+for (const [id, p] of Object.entries(PRICES)) if (INGREDIENTS[id]) Object.assign(INGREDIENTS[id], { price: p.price, pack: p.pack, product: p.product });
+
 export const LACTOSE_FREE = {
   mleko: 'mlekoBL', jogurt: 'jogurtBL', smietana: 'smietanaBL', smietanka: 'smietankaBL',
   kefir: 'kefirBL', twarog: 'twarogBL', serekWiejski: 'serekWiejskiBL', mozzarella: 'mozzarellaBL',

@@ -1,4 +1,5 @@
 import { INGREDIENTS, CATEGORIES, TAG_LABELS } from './data.js';
+import { PRICES_DATE } from './prices.js';
 import {
   ALL_RECIPES, siteOf, SITES, LOADED_SITES, buildProfile, describeProfile, affinity, taste, TASTE_LABELS, priceTier, PRICE_LABELS, PRICE_LIMITS, EFFORT, norm, buyId, isQuickHealthy, healthInfo, ingCount, fitsEquipment, avoidStems, containsAvoided, recipeTime, recipeById, scaled, nutrition, dayNutrition, generatePlan, mealShares, shoppingList, swapOptions, costPerPortion, cookDays,
   fmtQty, fmtZl, round2,
@@ -448,6 +449,7 @@ function renderShopping() {
       <div class="sum"><span>Razem</span><span>${fmtZl(list.total)}</span></div>
       <div class="muted small">Zostało do kupienia: ${fmtZl(remaining)} · ${toBuy.filter((it) => !state.checked[it.id]).length} z ${toBuy.length} pozycji</div>
       <div class="muted small" style="margin-top:4px">Odhaczone produkty trafiają do <a href="#lodowka">lodówki</a>.</div>
+      ${PRICES_DATE ? `<div class="muted small" style="margin-top:4px">Ceny z <a href="https://zakupy.biedronka.pl" target="_blank" rel="noopener">Biedronki online</a> z ${new Date(PRICES_DATE).toLocaleDateString('pl-PL')}. Produkty, których tam nie ma, mają ceny szacunkowe.</div>` : ''}
       <div class="row" style="margin-top:12px"><button class="btn small" data-action="copy-list">Wyślij / skopiuj listę</button></div>
     </div>
     ${Object.keys(CATEGORIES).filter((c) => groups[c]?.some((it) => it.packs > 0)).map((c) => `
@@ -468,7 +470,7 @@ function shopItem(it) {
   return `
     <label class="item ${done ? 'done' : ''}">
       <input type="checkbox" data-action="check" data-id="${it.id}" ${done ? 'checked' : ''}>
-      <div><div class="name">${it.name}</div><div class="sub">${packTxt} · ${sub.join(' · ')}</div></div>
+      <div><div class="name">${it.name}</div><div class="sub">${packTxt} · ${sub.join(' · ')}</div>${it.product ? `<div class="sub">w Biedronce: ${it.product}</div>` : ''}</div>
       <div class="price">${fmtZl(it.cost)}</div>
     </label>`;
 }

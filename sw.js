@@ -1,6 +1,6 @@
 // Simple offline cache: network first, and the cached version when offline.
-const CACHE = 'pudelko-v28';
-const FILES = ['./', 'index.html', 'styles.css', 'js/app.js', 'js/planner.js', 'js/data.js', 'manifest.webmanifest', 'icon.svg'];
+const CACHE = 'pudelko-v29';
+const FILES = ['./', 'index.html', 'styles.css', 'js/app.js', 'js/planner.js', 'js/data.js', 'js/prices.js', 'manifest.webmanifest', 'icon.svg'];
 // Recipe packs may not exist, so their absence doesn't break installation.
 const PACKS = ['ania', 'lidl', 'ks', 'respo'].map((s) => `js/recipes-${s}.js`);
 

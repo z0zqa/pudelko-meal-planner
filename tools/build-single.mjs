@@ -11,7 +11,7 @@ const packs = ['ania', 'lidl', 'ks', 'respo'].map((s) => `js/recipes-${s}.js`).f
 const packNames = packs.map((f) => read(f).match(/^export const (\w+)/m)[1]);
 
 // Modules in dependency order; imports and exports are stripped since everything goes into one script.
-const js = ['js/data.js', ...packs, 'js/planner.js', 'js/app.js']
+const js = ['js/prices.js', 'js/data.js', ...packs, 'js/planner.js', 'js/app.js']
   .map((f) => `// ── ${f} ──\n` + read(f)
     .replace(/^import[\s\S]*?from\s+'[^']+';\n/gm, '')
     .replace(/^\/\/ <packs>[\s\S]*?\/\/ <\/packs>\n/m, `const packs = [${packNames.join(', ')}];\n`)

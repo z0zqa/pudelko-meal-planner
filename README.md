@@ -5,10 +5,7 @@
 Wpisujesz, ile chcesz wydać i na ile dni. Pudełko układa śniadania, obiady i kolacje, liczy zakupy w całych opakowaniach i rozpisuje, co ugotować kiedy. Działa w przeglądarce, bez konta i bez serwera, także offline.
 
 <p align="center">
-  <img src="docs/plan-light.png" width="200" alt="Plan na 5 dni z kosztem zakupów i kaloriami">
-  <img src="docs/zakupy.png" width="200" alt="Lista zakupów w całych opakowaniach">
-  <img src="docs/szybkie.png" width="200" alt="Szybkie i zdrowe przepisy">
-  <img src="docs/plan-dark.png" width="200" alt="Plan w trybie ciemnym">
+  <img src="docs/demo.gif" width="320" alt="Pudełko w akcji: układanie planu, ponowne losowanie, lista zakupów, lodówka i szybkie przepisy">
 </p>
 
 ## Co potrafi

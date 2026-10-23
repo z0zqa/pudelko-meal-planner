@@ -7,7 +7,7 @@ const read = (f) => readFileSync(ROOT + f, 'utf8');
 const out = process.argv[2] || `${ROOT}pudelko.html`;
 
 // Recipe packs are optional: only those built locally are included.
-const packs = ['ania', 'lidl', 'ks', 'respo', 'ds'].map((s) => `js/recipes-${s}.js`).filter((f) => existsSync(ROOT + f));
+const packs = ['ania', 'lidl', 'ks', 'respo', 'ds', 'ol'].map((s) => `js/recipes-${s}.js`).filter((f) => existsSync(ROOT + f));
 const packNames = packs.map((f) => read(f).match(/^export const (\w+)/m)[1]);
 
 // Modules in dependency order; imports and exports are stripped since everything goes into one script.

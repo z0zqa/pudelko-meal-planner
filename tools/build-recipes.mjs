@@ -445,6 +445,21 @@ const SOURCES = {
       return t;
     },
   },
+  ol: {
+    raw: 'data/olga-raw.json', out: 'js/recipes-ol.js', name: 'OL_RECIPES', prefix: 'ol-', site: 'ol',
+    note: 'olgalewandowskadietetyk.pl', qtyFirst: false,
+    // Meal type from the site's categories (suppers share the breakfast pool); desserts and snacks have none.
+    type: (r) => r.tags[0],
+    // The site gives servings and kcal and protein per serving, like Respo.
+    exactServes: true,
+    servings: (r) => Math.max(1, Math.min(12, parseInt(r.yield) || 1)),
+    nutrition: (r, ing, mass, pm, pk, serves) => lidlNutrition(r, calcNutrition(ing, pk, serves)),
+    tags: (r, ing) => {
+      const t = dietFromIngredients(ing, r.ingredients.flatMap((g) => g.items.map((i) => i.name.toLowerCase())).join(' | '));
+      if (r.diets.includes('bez-glutenu') && !t.includes('bezgl')) t.push('bezgl');
+      return t;
+    },
+  },
   ds: {
     raw: 'data/doradcasmaku-raw.json', out: 'js/recipes-ds.js', name: 'DS_RECIPES', prefix: 'ds-', site: 'ds',
     note: 'doradcasmaku.pl', qtyFirst: true,

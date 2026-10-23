@@ -516,33 +516,18 @@ function* planSearch(s, fridge, rng, tries) {
   };
 
   const goals = healthGoals(s);
-  const seen = new Set();
-  const results = [];
-  // A second round without the variety rule when strict filters left too few distinct dishes.
-  let strict = true;
-  for (let t = 0; t < tries * 2; t++) {
-    if ((t & 63) === 0) yield;
-    if (t === tries) {
-      if (results.length) break;
-      strict = false;
-      seen.clear();
-    }
-    const d = pick(dinners, kd, wd).map((r) => r.id).sort();
-    const b = pick(breakfasts, kb, wb).map((r) => r.id).sort();
-    // Suppers differ from breakfasts; with a very small pool they may repeat.
-    const other = suppers.filter((r) => !b.includes(r.id));
-    const k = pick(other.length >= kk ? other : suppers, kk, wk).map((r) => r.id).sort();
-    const key = d.join(',') + '|' + b.join(',') + '|' + k.join(',');
-    if (seen.has(key)) continue;
-    seen.add(key);
-    // Variety: two lunches of the same type (e.g. pancakes twice) are rejected.
-    // Dish type: the icon, or for a generic icon the first word of the name ("Pasta z awokado…").
-    const dup = (k) => new Set(k).size < k.length;
-    const same = (ids) => {
-      const rs = ids.map((id) => recipeById[id]);
-      return dup(rs.map((r) => r.emoji).filter((e) => e !== '🍽️')) || dup(rs.map(dishKind));
-    };
-    if (strict && (same(d) || same([...b, ...k]) || dup([...d, ...b, ...k].map((id) => dishKind(recipeById[id]))))) continue;
+  const fishWanted = Math.round((goals.fishPerWeek * s.days) / 7);
+  // Variety: two lunches of the same type (e.g. pancakes twice) are rejected.
+  // Dish type: the icon, or for a generic icon the first word of the name ("Pasta z awokado…").
+  const dup = (k) => new Set(k).size < k.length;
+  const same = (ids) => {
+    const rs = ids.map((id) => recipeById[id]);
+    return dup(rs.map((r) => r.emoji).filter((e) => e !== '🍽️')) || dup(rs.map(dishKind));
+  };
+  const varied = (d, b, k) => !(same(d) || same([...b, ...k]) || dup([...d, ...b, ...k].map((id) => dishKind(recipeById[id]))));
+
+  // Scores one combination of dishes.
+  const evaluate = (d, b, k) => {
     const meals = buildMeals(d, b, s, k);
     const list = shoppingList(meals, fridge, s);
     const cost = list.total;
@@ -562,45 +547,117 @@ function* planSearch(s, fridge, rng, tries) {
     // half its value again, so a plan that empties the fridge wins over one that's a few zł cheaper.
     if (hasFridge) score -= 0.5 * fridgeUse(list.items);
     // Health goals from the research: shortfalls in protein, fiber and vegetables per day, a meal under 25 g of
-    // protein, and fewer fish servings than twice a week (pro rata for the plan's length). In zł relative to the budget,
-    // like the calorie penalty, so they weigh in without overriding the budget and calories.
-    {
-      let short = 0;
-      for (const n of dayStats) {
-        short += 2 * Math.max(0, 1 - n.protein / goals.protein) + 2 * Math.max(0, 1 - n.fiber / goals.fiberIdeal)
-          + 0.8 * Math.max(0, 1 - n.produce / goals.produceIdeal) + 0.6 * Math.max(0, 1 - n.minMealProtein / goals.proteinMeal);
-      }
-      const fishWanted = Math.round((goals.fishPerWeek * s.days) / 7);
-      const fish = fishServings(meals);
-      score += s.budget * (short / s.days + 0.25 * Math.max(0, fishWanted - fish.all) + (fishWanted && !fish.oily ? 0.08 : 0));
+    // protein, and fewer fish servings than twice a week (pro rata for the plan's length). In zł relative to the budget.
+    const fishN = fishServings(meals);
+    let short = 0;
+    for (const n of dayStats) {
+      short += 2 * Math.max(0, 1 - n.protein / goals.protein) + 2 * Math.max(0, 1 - n.fiber / goals.fiberIdeal)
+        + 0.8 * Math.max(0, 1 - n.produce / goals.produceIdeal) + 0.6 * Math.max(0, 1 - n.minMealProtein / goals.proteinMeal);
     }
+    score += s.budget * (short / s.days + 0.25 * Math.max(0, fishWanted - fishN.all) + (fishWanted && !fishN.oily ? 0.08 : 0));
     if (prefs?.liked) {
       // Bonus for matching taste, in zł relative to the budget.
       const parts = [[d, scales.obiad], [b, scales.sniadanie], [k, scales.kolacja]].filter(([ids, sc]) => ids.length && sc);
       const fit = parts.reduce((a, [ids, sc]) => a + ids.reduce((x, id) => x + norm1(recipeById[id], sc), 0) / ids.length, 0) / (parts.length || 1);
       score -= fit * s.budget * 0.4;
     }
-    // How far the days are from the calorie target (average and worst day), for the final choice.
     const kOff = s.kcal ? dayStats.map((n) => Math.abs(n.kcal - s.kcal) / s.kcal) : [0];
-    results.push({ meals, cost, score, kdev: kOff.reduce((a, x) => a + x, 0) / kOff.length, kworst: Math.max(...kOff) });
+    const avgOf = (key) => dayStats.reduce((a, n) => a + n[key], 0) / dayStats.length;
+    const r = {
+      d, b, k, meals, cost, score,
+      kdev: kOff.reduce((a, x) => a + x, 0) / kOff.length, kworst: Math.max(...kOff),
+      protein: avgOf('protein'), fiber: avgOf('fiber'), produce: avgOf('produce'),
+      minProtein: Math.min(...dayStats.map((n) => n.protein)), minFiber: Math.min(...dayStats.map((n) => n.fiber)),
+      fish: fishN.all, oily: fishN.oily,
+    };
+    r.calOk = r.kdev <= 0.04 && r.kworst <= 0.12;
+    // The rules: protein at least 95% of the goal on average and 85% on the weakest day, fiber at least the minimum
+    // on average and 80% on the weakest day, at least 400 g of vegetables and fruit, and the fish servings.
+    r.healthy = r.protein >= goals.protein * 0.95 && r.minProtein >= goals.protein * 0.85 && r.fiber >= goals.fiber
+      && r.minFiber >= goals.fiber * 0.8 && r.produce >= goals.produce && r.fish >= fishWanted;
+    // "Close": within about 10% on averages, at most one fish serving short.
+    r.close = r.protein >= goals.protein * 0.9 && r.fiber >= goals.fiber * 0.9 && r.produce >= goals.produce * 0.9 && r.fish >= fishWanted - 1;
+    // What the improvement step minimises: the score plus heavy costs for missing calories, the rules and the budget.
+    const gap = 1.5 * Math.max(0, 1 - r.protein / (goals.protein * 0.95)) + 1.5 * Math.max(0, 1 - r.fiber / goals.fiber)
+      + Math.max(0, 1 - r.produce / goals.produce) + 0.5 * Math.max(0, 1 - r.minFiber / (goals.fiber * 0.8))
+      + 0.5 * Math.max(0, 1 - r.minProtein / (goals.protein * 0.85)) + 0.3 * Math.max(0, fishWanted - r.fish);
+    r.obj = score + s.budget * (4 * Math.max(0, r.kdev - 0.04) + 4 * Math.max(0, r.kworst - 0.12) + 2 * gap) + 2 * Math.max(0, cost - s.budget);
+    return r;
+  };
+
+  const seen = new Set();
+  const results = [];
+  const add = (d, b, k, strict) => {
+    const key = d.join(',') + '|' + b.join(',') + '|' + k.join(',');
+    if (seen.has(key)) return null;
+    seen.add(key);
+    if (strict && !varied(d, b, k)) return null;
+    const r = evaluate(d, b, k);
+    results.push(r);
+    return r;
+  };
+  // 1. Random combinations, drawn with the weights above.
+  // A second round without the variety rule when strict filters left too few distinct dishes.
+  let strict = true;
+  for (let t = 0; t < tries * 2; t++) {
+    if ((t & 63) === 0) yield;
+    if (t === tries) {
+      if (results.length) break;
+      strict = false;
+      seen.clear();
+    }
+    const d = pick(dinners, kd, wd).map((r) => r.id).sort();
+    const b = pick(breakfasts, kb, wb).map((r) => r.id).sort();
+    // Suppers differ from breakfasts; with a very small pool they may repeat.
+    const other = suppers.filter((r) => !b.includes(r.id));
+    const k = pick(other.length >= kk ? other : suppers, kk, wk).map((r) => r.id).sort();
+    add(d, b, k, strict);
+  }
+  if (!results.length) return { error: 'Za mało przepisów przy tych ustawieniach. Poluzuj filtry: czas w kuchni, źródło przepisów, „Bez glutenu” albo listę „Czego nie jesz”.' };
+
+  // 2. Improvement: from the best plans, swap one dish at a time and keep the change when the plan gets better
+  // (closer to the calories and the rules, cheaper). Random draws rarely land on plans that are healthy and cheap
+  // at once; small steps from good ones do.
+  const slots = [['d', dinners, wd], ['b', breakfasts, wb], ['k', suppers, wk]].filter(([, pool]) => pool.length);
+  const seeds = [...results].sort((a, b) => a.obj - b.obj).slice(0, 12);
+  let step = 0;
+  for (const seed of seeds) {
+    let cur = seed;
+    for (let i = 0; i < 90; i++) {
+      if ((++step & 31) === 0) yield;
+      const [slot, pool, w] = slots[Math.floor(rng() * slots.length)];
+      if (!cur[slot].length) continue;
+      const nextIds = [...cur[slot]];
+      const cand = pick(pool, 1, w)[0]?.id;
+      if (!cand || [...cur.d, ...cur.b, ...cur.k].includes(cand)) continue;
+      nextIds[Math.floor(rng() * nextIds.length)] = cand;
+      nextIds.sort();
+      const nb = { d: cur.d, b: cur.b, k: cur.k, [slot]: nextIds };
+      const r = add(nb.d, nb.b, nb.k, strict);
+      if (r && r.obj < cur.obj) cur = r;
+    }
   }
 
-  if (!results.length) return { error: 'Za mało przepisów przy tych ustawieniach. Poluzuj filtry: czas w kuchni, źródło przepisów, „Bez glutenu” albo listę „Czego nie jesz”.' };
-  results.sort((a, b) => a.score - b.score);
-  // Calories come first: among plans within 4% of the target on average and 12% on the worst day, the health goals
-  // and the price decide. Only when no plan hits the calories do the others compete on score alone.
-  const onTarget = results.filter((r) => r.kdev <= 0.04 && r.kworst <= 0.12);
-  const ranked = onTarget.length ? onTarget : results;
-  const within = ranked.filter((r) => r.cost <= s.budget);
+  // 3. The choice, in order: calories, the health rules, the budget. A plan that hits the calories and the rules
+  // may go up to 10% over budget before a less healthy one is taken. Random among the best few for variety.
+  results.sort((a, b) => a.obj - b.obj);
+  const inBudget = (r) => r.cost <= s.budget;
+  const tiers = [
+    (r) => r.calOk && r.healthy && inBudget(r),
+    (r) => r.calOk && r.close && inBudget(r),
+    (r) => r.calOk && r.healthy && r.cost <= s.budget * 1.1,
+    (r) => r.calOk && r.close && r.cost <= s.budget * 1.1,
+    (r) => r.calOk && inBudget(r),
+    (r) => r.calOk,
+    () => true,
+  ];
   let chosen;
-  if (within.length) {
-    // Random pick among those within budget, with a slight preference for cheaper ones.
-    // A wider pool of good plans = more variety across subsequent draws.
-    const pool = within.slice(0, Math.max(1, Math.min(60, Math.ceil(within.length * 0.3))));
-    chosen = pool[Math.floor(rng() * pool.length)];
-  } else {
-    // Nothing fits the budget: the best score (cost + hitting calories), not just the cheapest.
-    chosen = ranked[0];
+  for (const tier of tiers) {
+    const pool = results.filter(tier);
+    if (!pool.length) continue;
+    const top = pool.slice(0, Math.max(1, Math.min(12, Math.ceil(pool.length * 0.3))));
+    chosen = top[Math.floor(rng() * top.length)];
+    break;
   }
   return { meals: chosen.meals, cost: chosen.cost, overBudget: chosen.cost > s.budget };
 }

@@ -69,9 +69,9 @@ export const MY_RECIPES = [{
 
 ## Recipe sources
 
-On top of the built-in recipes, Pudełko uses about 5,300 dishes from five Polish recipe sites: [Ania Gotuje](https://aniagotuje.pl) (710), [Kuchnia Lidla](https://kuchnialidla.pl) (2,567), [Kwestia Smaku](https://www.kwestiasmaku.com) (891), [Centrum Respo](https://centrumrespo.pl) (1,067) and the air fryer recipes of [Doradca Smaku](https://www.doradcasmaku.pl/przepisy-air-fryer-kuchnia) (38). The app stores only names, ingredients with quantities (for the shopping list), nutrition and links. For the recipe itself you always click through to the original.
+On top of the built-in recipes, Pudełko uses about 5,500 dishes from six Polish recipe sites: [Ania Gotuje](https://aniagotuje.pl) (712), [Kuchnia Lidla](https://kuchnialidla.pl) (2,572), [Kwestia Smaku](https://www.kwestiasmaku.com) (895), [Centrum Respo](https://centrumrespo.pl) (1,075), dietitian [Olga Lewandowska](https://www.olgalewandowskadietetyk.pl/przepisy/) (196) and the air fryer recipes of [Doradca Smaku](https://www.doradcasmaku.pl/przepisy-air-fryer-kuchnia) (38). The app stores only names, ingredients with quantities (for the shopping list), nutrition and links. For the recipe itself you always click through to the original.
 
 - `tools/fetch_*.py` downloads the data into `data/*-raw.json`, respecting robots.txt crawl delays, and resumes interrupted downloads.
-- `node tools/build-recipes.mjs [ania|lidl|ks|respo|ds]` converts free-text ingredients ("2 ząbki czosnku", "pół szklanki mleka") into products from the price list and builds `js/recipes-*.js`.
+- `node tools/build-recipes.mjs [ania|lidl|ks|respo|ol|ds]` converts free-text ingredients ("2 ząbki czosnku", "pół szklanki mleka") into products from the price list and builds `js/recipes-*.js`.
 
 This is a project for personal use.

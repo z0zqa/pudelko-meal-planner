@@ -1,7 +1,7 @@
 import { INGREDIENTS, CATEGORIES, TAG_LABELS } from './data.js';
 import { PRICES_DATE } from './prices.js';
 import {
-  ALL_RECIPES, siteOf, SITES, LOADED_SITES, buildProfile, describeProfile, affinity, taste, TASTE_LABELS, priceTier, PRICE_LABELS, PRICE_LIMITS, EFFORT, norm, buyId, isQuickHealthy, healthInfo, ingCount, fitsEquipment, avoidStems, containsAvoided, recipeTime, recipeById, scaled, nutrition, dayNutrition, generatePlanAsync, fromFridge, mealShares, shoppingList, swapOptions, costPerPortion, cookDays,
+  ALL_RECIPES, siteOf, SITES, LOADED_SITES, buildProfile, describeProfile, affinity, taste, TASTE_LABELS, priceTier, PRICE_LABELS, PRICE_LIMITS, EFFORT, norm, buyId, isQuickHealthy, healthInfo, ingCount, fitsEquipment, avoidStems, containsAvoided, recipeTime, recipeById, scaled, nutrition, dayNutrition, generatePlanAsync, fromFridge, healthGoals, fishServings, mealShares, shoppingList, swapOptions, costPerPortion, cookDays,
   fmtQty, fmtZl, round2,
 } from './planner.js';
 
@@ -203,6 +203,8 @@ function renderPlan() {
     ${breakfasts.length ? `${mealHead('sniadanie', 'Śniadania', breakfasts.length)}${rail(breakfasts.map(([m, i]) => dishCard(m, i)).join(''))}` : ''}
     ${suppers.length ? `${mealHead('kolacja', 'Kolacje', suppers.length)}${rail(suppers.map(([m, i]) => dishCard(m, i)).join(''))}` : ''}
 
+    ${healthCard(p)}
+
     <div class="sec-head"><h2>Tydzień</h2><span class="muted small">${sessions.length === 1 ? 'gotujesz raz, potem odgrzewasz' : `gotujesz ${sessions.length}×: ${sessions.map((d) => dayShort(d)).join(', ')}`}</span></div>
     ${rail(Array.from({ length: s.days }, (_, d) => dayRow(d)).join(''), 'week')}
 
@@ -229,6 +231,43 @@ function fridgeLine(p) {
   return `<div class="hero-fridge">${icon('fridge')}<span>Z lodówki: ${used.map((u) => `${u.name.split(' (')[0].toLowerCase()} ${fmtQty(u.qty, u.unit)}`).join(', ')}</span></div>`;
 }
 
+// How the plan meets the goals from the nutrition research, day by day, plus what food alone can't cover.
+function healthCard(p) {
+  const s = p.settings;
+  const g = healthGoals(s);
+  const days = Array.from({ length: s.days }, (_, d) => dayNutrition(p.meals, d));
+  const avg = (k) => Math.round(days.reduce((a, n) => a + n[k], 0) / days.length);
+  const daysOk = (k, goal) => days.filter((n) => n[k] >= goal).length;
+  const fish = fishServings(p.meals);
+  const fishWanted = Math.max(1, Math.round((g.fishPerWeek * s.days) / 7));
+  const row = (ok, label, value, note) => `<li class="${ok === 2 ? 'ok' : ok === 1 ? 'mid' : 'low'}"><span class="hc-dot" aria-hidden="true"></span><span><strong>${label}</strong> <span class="num">${value}</span><br><span class="muted small">${note}</span></span></li>`;
+  const grade = (v, min, ideal) => (v >= ideal ? 2 : v >= min * 0.9 ? 1 : 0);
+  const minMeal = Math.min(...days.map((n) => n.minMealProtein));
+  return `
+    <section class="card health">
+      <div class="sec-head" style="margin:0 0 6px"><h2>Jak wypada plan</h2><span class="muted small">średnio na dzień</span></div>
+      <ul class="hc">
+        ${row(grade(avg('protein'), g.protein, g.protein), 'Białko', `${avg('protein')} / ${g.protein} g`, `cel na redukcji ok. 1,2–1,6 g na kg · w ${daysOk('protein', g.protein)} z ${s.days} dni`)}
+        ${row(minMeal >= g.proteinMeal ? 2 : minMeal >= 15 ? 1 : 0, 'Białko w każdym posiłku', `min. ${minMeal} g`, `cel: co najmniej ${g.proteinMeal} g w każdym posiłku; dołóż jajko, skyr bez laktozy albo tofu do najlżejszego`)}
+        ${row(grade(avg('fiber'), g.fiber, g.fiberIdeal), 'Błonnik', `${avg('fiber')} / ${g.fiber}–${g.fiberIdeal} g`, `w ${daysOk('fiber', g.fiber)} z ${s.days} dni; zwiększaj stopniowo i pij więcej wody`)}
+        ${row(grade(avg('produce'), g.produce, g.produceIdeal), 'Warzywa i owoce', `${avg('produce')} / ${g.produce}–${g.produceIdeal} g`, 'więcej warzyw niż owoców; ziemniaki się nie liczą')}
+        ${row(fish.all >= fishWanted ? (fish.oily ? 2 : 1) : 0, 'Ryby', `${fish.all} / ${fishWanted}`, `porcje w tym planie; 2× w tygodniu, w tym raz tłusta (łosoś, śledź)${fish.oily ? '' : ' · brak tłustej ryby'}`)}
+      </ul>
+      <details class="hc-tips">
+        <summary>Czego plan nie załatwi sam</summary>
+        <ul>
+          <li><strong>Witamina D:</strong> 1000–2000 IU dziennie przez cały rok (polskie wytyczne 2023), przy otyłości ok. dwa razy więcej.</li>
+          <li><strong>Wapń (1000 mg):</strong> nabiał bez laktozy, sery dojrzewające, tofu z wapniem, napoje roślinne wzbogacane. Wersje „bio” nie mają dodanego wapnia.</li>
+          <li><strong>Żelazo (18 mg dla kobiet):</strong> mięso, strączki, kasze; do posiłku warzywo albo owoc z witaminą C.</li>
+          <li><strong>Jod i B12:</strong> sól jodowana, jajka, ryby, nabiał bez laktozy.</li>
+          <li><strong>Woda:</strong> ok. 1,5 l napojów dziennie, więcej przy większej ilości błonnika.</li>
+          <li><strong>Cukier i sól:</strong> cukry dodane najlepiej poniżej 19 g, sól do 5 g dziennie; uważaj na gotowe sosy i wędliny.</li>
+        </ul>
+        <p class="muted small">Na podstawie zaleceń WHO, EFSA i norm NIZP-PZH (raport w repozytorium). To nie zastępuje porady lekarza ani dietetyka.</p>
+      </details>
+    </section>`;
+}
+
 function prefsLine(s) {
   const bits = [];
   if (s.avoid?.length) bits.push(`bez: ${s.avoid.join(', ')}`);
@@ -250,12 +289,13 @@ function nutritionSummary(p) {
     <div class="nutri">
       <div><strong>${avg('kcal').toLocaleString('pl-PL')}</strong><span>kcal/dzień</span></div>
       <div><strong>${avg('protein')}<small>g</small></strong><span>białko</span></div>
-      <div><strong>${p.settings.kcal.toLocaleString('pl-PL')}</strong><span>cel kcal</span></div>
+      <div><strong>${avg('fiber')}<small>g</small></strong><span>błonnik</span></div>
+      <div><strong>${avg('produce')}<small>g</small></strong><span>warzywa</span></div>
     </div>
     <div class="hero-sub">Na osobę: ${split} kcal. Przekąski dolicz osobno.</div>`;
 }
 
-const mealNutrition = (m) => { const n = nutrition(recipeById[m.recipeId]); const f = m.factor || 1; return { kcal: Math.round(n.kcal * f), protein: Math.round(n.protein * f) }; };
+const mealNutrition = (m) => { const n = nutrition(recipeById[m.recipeId]); const f = m.factor || 1; return { kcal: Math.round(n.kcal * f), protein: Math.round(n.protein * f), fiber: Math.round(n.fiber * f), produce: Math.round(n.produce * f) }; };
 const fmtFactor = (f) => String(f).replace('.', ',');
 const portionSize = (m) => (m.factor && m.factor !== 1 ? ` po ×${fmtFactor(m.factor)}` : '');
 
@@ -291,7 +331,7 @@ function dishCard(m, i) {
       </div>
       <div class="dish-body">
         <h3>${r.name}</h3>
-        <div class="meta"><span class="num">${kcalTxt(mealNutrition(m))}</span> · <span class="num">${fmtZl(costPerPortion(r, s) * (m.factor || 1))}</span>/porcja · <span class="tier tier-${tier}">${PRICE_LABELS[tier]}</span>${r.type === 'sniadanie' ? ` · ${TASTE_LABELS[taste(r)]}` : ''}</div>
+        <div class="meta"><span class="num">${kcalTxt(mealNutrition(m))}</span> · <span class="num">${mealNutrition(m).protein} g</span> białka · <span class="num">${mealNutrition(m).fiber} g</span> błonnika · <span class="num">${fmtZl(costPerPortion(r, s) * (m.factor || 1))}</span>/porcja · <span class="tier tier-${tier}">${PRICE_LABELS[tier]}</span>${r.type === 'sniadanie' ? ` · ${TASTE_LABELS[taste(r)]}` : ''}</div>
         ${notes.length ? `<div class="dish-notes">${notes.join(' · ')}</div>` : ''}
         <div class="actions">
           <button class="btn small primary" data-action="swap" data-i="${i}">${icon('swap')} Zamień</button>
@@ -316,7 +356,7 @@ function dayRow(d) {
     }
   }
   const n = dayNutrition(state.plan.meals, d);
-  return `<div class="day">${calPage(d)}<div class="kcal num">${n.kcal} kcal</div><ul>${items.join('')}</ul></div>`;
+  return `<div class="day">${calPage(d)}<div class="kcal num">${n.kcal} kcal · ${n.protein} g B · ${n.fiber} g bł.</div><ul>${items.join('')}</ul></div>`;
 }
 
 function renderForm() {

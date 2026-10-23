@@ -1,4 +1,4 @@
-import { INGREDIENTS, RECIPES, LACTOSE_FREE } from './data.js';
+import { INGREDIENTS, RECIPES, LACTOSE_FREE, PRODUCE, FISH, OILY_FISH } from './data.js';
 // Recipe packs from other sites are optional: tools/build-recipes.mjs builds them locally,
 // and when the file is missing the app runs on the built-in recipes alone.
 // <packs>
@@ -492,12 +492,20 @@ function* planSearch(s, fridge, rng, tries) {
   // What's in the fridge: dishes that use it are drawn more often, up to 7× for three or more products.
   const inFridge = (r) => Object.keys(r.ing).filter((id) => !INGREDIENTS[id].pantry && fridge[buyId(id, s)] > 0).length;
   const hasFridge = Object.values(fridge).some((q) => q > 0);
+  // Health: dishes dense in protein, fiber and vegetables (per 100 kcal) are drawn more often, and fish dishes too.
+  // Protein weighs most: 24% of energy (6 g per 100 kcal) is above what most recipes give.
+  const health = (r) => {
+    const n = nutrition(r);
+    const per100 = 100 / Math.max(100, n.kcal);
+    return (0.2 + Math.min(2, (n.protein * per100) / 4) ** 2) * (0.5 + Math.min(1, (n.fiber * per100) / 1.7))
+      * (0.8 + Math.min(0.6, n.produce / 250)) * (n.fish >= 60 ? 3 : 1);
+  };
   const weighter = (pool, key) => {
-    if ((!prefs?.liked && !hasFridge) || !pool.length) return null;
+    if (!pool.length) return null;
     const sc = prefs?.liked ? (scales[key] = scaleOf(pool)) : 0;
     // Favorite dishes themselves get an extra chance (the 2-week rotation still applies).
     const taste = prefs?.liked ? (r) => Math.exp(3 * norm1(r, sc)) * (prefs.likedSet.has(r.id) ? 6 : 1) : () => 1;
-    return (r) => taste(r) * (1 + 2 * Math.min(3, inFridge(r)));
+    return (r) => taste(r) * health(r) * (1 + 2 * Math.min(3, inFridge(r)));
   };
   const wd = weighter(dinners, 'obiad'), wb = weighter(breakfasts, 'sniadanie'), wk = weighter(suppers, 'kolacja');
   const samplers = new Map();
@@ -507,6 +515,7 @@ function* planSearch(s, fridge, rng, tries) {
     return samplers.get(pool)(k, rng);
   };
 
+  const goals = healthGoals(s);
   const seen = new Set();
   const results = [];
   // A second round without the variety rule when strict filters left too few distinct dishes.
@@ -537,6 +546,7 @@ function* planSearch(s, fridge, rng, tries) {
     const meals = buildMeals(d, b, s, k);
     const list = shoppingList(meals, fridge, s);
     const cost = list.total;
+    const dayStats = Array.from({ length: s.days }, (_, i) => dayNutrition(meals, i));
     // Ranking penalties: each extra cooking session in the week and calorie shortfall versus the target.
     let score = cost + (s.effort === 'min' || s.effort === 'ultra' ? 12 : 5) * (cookDays(meals).length - 1);
     if (s.kcal) {
@@ -544,25 +554,44 @@ function* planSearch(s, fridge, rng, tries) {
       // Penalty for each day's deviation in either direction (too little food or going over the limit).
       // Weighted heavily, since the fixed calorie target matters more than a few zł difference.
       // The worst day counts extra, so a single very light day doesn't hide behind a good average.
-      const devs = Array.from({ length: s.days }, (_, i) => Math.abs(goal - dayNutrition(meals, i).kcal));
+      const devs = dayStats.map((n) => Math.abs(goal - n.kcal));
       const dev = devs.reduce((a, x) => a + x, 0) / s.days + Math.max(...devs) / 2;
-      score += (dev / goal) * s.budget * 3;
+      score += (dev / goal) * s.budget * 6;
     }
     // Using up what would spoil (vegetables, meat, dairy) counts on top of the money it saves:
     // half its value again, so a plan that empties the fridge wins over one that's a few zł cheaper.
     if (hasFridge) score -= 0.5 * fridgeUse(list.items);
+    // Health goals from the research: shortfalls in protein, fiber and vegetables per day, a meal under 25 g of
+    // protein, and fewer fish servings than twice a week (pro rata for the plan's length). In zł relative to the budget,
+    // like the calorie penalty, so they weigh in without overriding the budget and calories.
+    {
+      let short = 0;
+      for (const n of dayStats) {
+        short += 2 * Math.max(0, 1 - n.protein / goals.protein) + 2 * Math.max(0, 1 - n.fiber / goals.fiberIdeal)
+          + 0.8 * Math.max(0, 1 - n.produce / goals.produceIdeal) + 0.6 * Math.max(0, 1 - n.minMealProtein / goals.proteinMeal);
+      }
+      const fishWanted = Math.round((goals.fishPerWeek * s.days) / 7);
+      const fish = fishServings(meals);
+      score += s.budget * (short / s.days + 0.25 * Math.max(0, fishWanted - fish.all) + (fishWanted && !fish.oily ? 0.08 : 0));
+    }
     if (prefs?.liked) {
       // Bonus for matching taste, in zł relative to the budget.
       const parts = [[d, scales.obiad], [b, scales.sniadanie], [k, scales.kolacja]].filter(([ids, sc]) => ids.length && sc);
       const fit = parts.reduce((a, [ids, sc]) => a + ids.reduce((x, id) => x + norm1(recipeById[id], sc), 0) / ids.length, 0) / (parts.length || 1);
       score -= fit * s.budget * 0.4;
     }
-    results.push({ meals, cost, score });
+    // How far the days are from the calorie target (average and worst day), for the final choice.
+    const kOff = s.kcal ? dayStats.map((n) => Math.abs(n.kcal - s.kcal) / s.kcal) : [0];
+    results.push({ meals, cost, score, kdev: kOff.reduce((a, x) => a + x, 0) / kOff.length, kworst: Math.max(...kOff) });
   }
 
   if (!results.length) return { error: 'Za mało przepisów przy tych ustawieniach. Poluzuj filtry: czas w kuchni, źródło przepisów, „Bez glutenu” albo listę „Czego nie jesz”.' };
   results.sort((a, b) => a.score - b.score);
-  const within = results.filter((r) => r.cost <= s.budget);
+  // Calories come first: among plans within 4% of the target on average and 12% on the worst day, the health goals
+  // and the price decide. Only when no plan hits the calories do the others compete on score alone.
+  const onTarget = results.filter((r) => r.kdev <= 0.04 && r.kworst <= 0.12);
+  const ranked = onTarget.length ? onTarget : results;
+  const within = ranked.filter((r) => r.cost <= s.budget);
   let chosen;
   if (within.length) {
     // Random pick among those within budget, with a slight preference for cheaper ones.
@@ -571,7 +600,7 @@ function* planSearch(s, fridge, rng, tries) {
     chosen = pool[Math.floor(rng() * pool.length)];
   } else {
     // Nothing fits the budget: the best score (cost + hitting calories), not just the cheapest.
-    chosen = results[0];
+    chosen = ranked[0];
   }
   return { meals: chosen.meals, cost: chosen.cost, overBudget: chosen.cost > s.budget };
 }
@@ -603,33 +632,69 @@ export function grams(id, q) {
   return q * (I.gPerSzt || 100);
 }
 
-// Calories and protein per serving. Pack recipes may carry their own values (nutr); the rest are computed from ingredients.
+// Per serving: calories, protein, fiber (g), vegetables and fruit (g) and fish (g, oily or not).
+// Pack recipes may carry their own calories and protein (nutr); everything else comes from the ingredients.
 const nutrCache = new Map();
 export function nutrition(r) {
-  if (r.nutr) return r.nutr;
   if (!nutrCache.has(r.id)) {
-    let kcal = 0, protein = 0;
+    let kcal = 0, protein = 0, fiber = 0, produce = 0, fish = 0, oily = false;
     for (const [id, q] of Object.entries(r.ing)) {
+      const I = INGREDIENTS[id];
       const g = grams(id, q);
-      kcal += (g * INGREDIENTS[id].kcal) / 100;
-      protein += (g * INGREDIENTS[id].protein) / 100;
+      kcal += (g * I.kcal) / 100;
+      protein += (g * I.protein) / 100;
+      fiber += (g * (I.fiber || 0)) / 100;
+      if (PRODUCE.has(id)) produce += g;
+      if (FISH.has(id)) { fish += g; oily ||= OILY_FISH.has(id); }
     }
-    nutrCache.set(r.id, { kcal: Math.round(kcal / r.serves), protein: Math.round(protein / r.serves) });
+    const per = (x) => Math.round(x / r.serves);
+    nutrCache.set(r.id, {
+      kcal: r.nutr ? r.nutr.kcal : per(kcal), protein: r.nutr ? r.nutr.protein : per(protein),
+      fiber: Math.round((fiber / r.serves) * 10) / 10, produce: per(produce), fish: per(fish), oily,
+    });
   }
   return nutrCache.get(r.id);
+}
+
+// Daily goals from the nutrition research (reports/Zdrowe odżywianie na 1500 kcal.md), scaled with the calorie target:
+// protein ~24% of energy within 70–130 g (1.2–1.6 g/kg), at least 25 g in each meal; fiber at least 25 g (EFSA, WHO,
+// NIZP-PZH), 30 g ideal; vegetables and fruit at least 400 g (WHO), 500 g ideal; fish twice a week, once oily (EPA+DHA).
+export function healthGoals(s) {
+  const kcal = s.kcal || 1500;
+  const fiber = Math.max(25, Math.round((kcal / 1000) * 14));
+  return {
+    protein: Math.min(130, Math.max(70, Math.round(kcal * 0.06))), proteinMeal: 25,
+    fiber, fiberIdeal: fiber + 5, produce: 400, produceIdeal: 500,
+    fishPerWeek: 2, fishMin: 80,
+  };
+}
+// How many fish servings (≥ 80 g) and oily ones a plan gives in its days, per person.
+export function fishServings(meals) {
+  let all = 0, oily = 0;
+  for (const m of meals) {
+    const n = nutrition(recipeById[m.recipeId]);
+    if (n.fish * (m.factor || 1) < 80) continue;
+    all += m.days.length;
+    if (n.oily) oily += m.days.length;
+  }
+  return { all, oily };
 }
 
 // Per-person total for a given plan day.
 export function dayNutrition(meals, day) {
   // Round at the end (the serving multiplier produces fractions).
-  const out = { kcal: 0, protein: 0 };
+  const out = { kcal: 0, protein: 0, fiber: 0, produce: 0, minMealProtein: Infinity };
   for (const m of meals) {
     if (!m.days.includes(day)) continue;
     const n = nutrition(recipeById[m.recipeId]);
-    out.kcal += n.kcal * (m.factor || 1);
-    out.protein += n.protein * (m.factor || 1);
+    const f = m.factor || 1;
+    out.kcal += n.kcal * f;
+    out.protein += n.protein * f;
+    out.fiber += n.fiber * f;
+    out.produce += n.produce * f;
+    out.minMealProtein = Math.min(out.minMealProtein, n.protein * f);
   }
-  return { kcal: Math.round(out.kcal), protein: Math.round(out.protein) };
+  return { kcal: Math.round(out.kcal), protein: Math.round(out.protein), fiber: Math.round(out.fiber), produce: Math.round(out.produce), minMealProtein: Math.round(out.minMealProtein) };
 }
 
 export function fmtQty(q, unit) {

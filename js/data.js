@@ -171,6 +171,31 @@ Object.assign(INGREDIENTS, {
 // Current store prices (js/prices.js, from tools/update-prices.mjs) replace the estimates above.
 for (const [id, p] of Object.entries(PRICES)) if (INGREDIENTS[id]) Object.assign(INGREDIENTS[id], { price: p.price, pack: p.pack, product: p.product });
 
+// Fiber in g per 100 g (or per 100 ml), approximate values from food composition tables
+// (Polish tables, USDA FoodData Central). Dry weight for grains, pasta and pulses; drained for canned.
+const FIBER = {
+  ryz: 1.3, makaron: 3, spaghetti: 3, kasza: 6, bulgur: 12, platki: 7, maka: 2.4, tortilla: 3, chleb: 6, soczewica: 11,
+  ziemniaki: 1.8, cebula: 1.7, czosnek: 2.1, marchew: 2.8, papryka: 2.1, brokul: 2.6, kapusta: 2.5, cukinia: 1.1, ogorek: 0.7,
+  pieczarki: 1.5, banany: 2.6, jablka: 2.4, cytryna: 2.8, tofu: 0.9, pomidory: 1.2, passata: 1.5, koncentrat: 4,
+  ciecierzyca: 6, fasola: 6, kukurydza: 2.5, masloOrz: 6, sojowy: 0.8, warzywaMroz: 3, szpinak: 2.2, pomidor: 1.2, por: 1.8,
+  seler: 1.8, pietruszka: 4.3, kalafior: 2, baklazan: 3, szparagi: 2.1, chrzan: 3.3, dynia: 1.5, buraki: 2.8,
+  kapustaKiszona: 2.9, kapustaPekin: 1.2, ogorekKiszony: 1, fasolkaSzparag: 2.7, groszek: 5.1, szczypiorek: 2.5, koperek: 2.1,
+  natka: 3.3, salata: 1.3, rzodkiewka: 1.6, imbir: 2, limonka: 2.8, awokado: 6.7, batat: 3, pomarancza: 2.4, owoce: 4,
+  rodzynki: 6, sosGotowy: 1.5, musztarda: 3, ketchup: 0.3, kaszaJaglana: 3.2, peczak: 15, kuskus: 5, fasolaBiala: 6,
+  kluskiGotowe: 1.5, bulkaTarta: 4, bulki: 3, ciastoFrancuskie: 1.5, grzybySuszone: 20, oliwki: 3.2, kakao: 30, pestki: 12,
+};
+for (const [id, f] of Object.entries(FIBER)) INGREDIENTS[id].fiber = f;
+
+// Vegetables and fruit that count towards the 400–600 g a day (WHO, NIZP-PZH); potatoes don't count (Harvard),
+// nor do herbs and lemons used for flavour.
+export const PRODUCE = new Set(['cebula', 'marchew', 'papryka', 'brokul', 'kapusta', 'cukinia', 'ogorek', 'pieczarki', 'banany',
+  'jablka', 'pomidory', 'passata', 'kukurydza', 'warzywaMroz', 'szpinak', 'pomidor', 'por', 'seler', 'pietruszka', 'kalafior',
+  'baklazan', 'szparagi', 'dynia', 'buraki', 'kapustaKiszona', 'kapustaPekin', 'ogorekKiszony', 'fasolkaSzparag', 'groszek',
+  'salata', 'rzodkiewka', 'awokado', 'batat', 'pomarancza', 'owoce']);
+// Fish for the "fish twice a week, once oily" rule (EPA+DHA); oily ones separately.
+export const FISH = new Set(['losos', 'lososWedzony', 'rybaBiala', 'sledz', 'tunczyk']);
+export const OILY_FISH = new Set(['losos', 'lososWedzony', 'sledz']);
+
 export const LACTOSE_FREE = {
   mleko: 'mlekoBL', jogurt: 'jogurtBL', smietana: 'smietanaBL', smietanka: 'smietankaBL',
   kefir: 'kefirBL', twarog: 'twarogBL', serekWiejski: 'serekWiejskiBL', mozzarella: 'mozzarellaBL',

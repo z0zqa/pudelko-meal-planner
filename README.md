@@ -18,6 +18,7 @@ The interface is in Polish, since it works with Polish recipes, products and sto
 - **Cooking schedule.** Meal prep laid out: what to cook on day one, what mid-week (when a dish won't keep that long) and what to freeze.
 - **Preferences.** Ingredients to avoid (with inflections and synonyms, e.g. "papryka" also excludes chili and ajvar), lactose-free products, a "least time at the stove" mode, air fryer instead of an oven, price per dish (cheap, medium, expensive), sweet or savory breakfasts and suppers, vegetarian, vegan or gluten-free.
 - **Rotation.** Dishes from the last two weeks don't come back, and every reroll on the same day brings different dishes.
+- **Health goals from research.** The draw favours dishes rich in protein, fiber and vegetables and aims for ~90 g protein, ≥25 g fiber, ≥400 g vegetables and fruit a day and fish twice a week, without giving up the calorie target. The plan shows how it scores on each goal, plus what food alone doesn't cover (vitamin D, calcium, iron, water). Based on WHO, EFSA and Polish NIZP-PZH guidance: see `reports/Zdrowe odżywianie na 1500 kcal.md`.
 - **Learns your taste.** 👍 and 👎 on dishes. Pudełko remembers the ingredients and flavor pairings you like and suggests them more often. Rejected dishes never show up again.
 - **Quick & healthy.** A separate tab with lunches under 25 minutes and breakfasts under 15, with few ingredients, including no-cook options.
 - **PWA.** Installable on a phone. All data stays in the browser (localStorage).

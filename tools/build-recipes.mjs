@@ -14,7 +14,7 @@ const pl = (re) => new RegExp(re.source
   .replaceAll('\\b', '(?:(?<=\\p{L}|\\d)(?![\\p{L}\\d])|(?<![\\p{L}\\d])(?=\\p{L}|\\d))'), 'u');
 
 // ── Dictionary: pattern (on the lowercased ingredient name) → product id. Order matters. ──
-const PANTRY = pl(/\b(sól|soli|solą|pieprz\w*|przypraw\w*|majeran\w*|oregano|tymian\w*|bazyli\w* suszon\w*|suszon\w* bazyli\w*|kmin\w*|kumin\w*|curry|kurkum\w*|cynamon\w*|gałk\w* muszkat\w*|liś\w* laurow\w*|liści\w* laurow\w*|ziel\w* angielsk\w*|ziół|zioła prowansalsk\w*|chili|płatki chili|papryk\w* (słodk|wędzon|ostr|mielon|chili)\w*|(słodk|wędzon|ostr|mielon)\w* papryk\w*|czosn\w* (granulowan|suszon)\w*|imbir\w* mielon\w*|kolendr\w* mielon\w*|lubczyk\w*|rozmaryn\w*|estragon\w*|cząber\w*|jałow\w*|goździk\w*|kardamon\w*|wanili\w*|woda|wody|wodą|wrzątk\w*|lód|kostk\w* lodu|ocet\w*|octu|olej\w*|oliw(a|y|ą|ę)\b|oliwy z oliwek|bulion\w*|wywar\w*|rosoł\w*|kostk\w* rosoł\w*|mąk\w* ziemniaczan\w*|skrobi\w*|proszk\w* do pieczenia|sod\w* oczyszczon\w*|cukr\w* (puder|wanili|trzcin)\w*|cukier|cukru|ksylitol\w*|erytrytol\w*|sos\w* worcester\w*|tabasco|sriracha|natka? ?do dekoracji|żelatyn\w*|sezam\w* do posypania|maggi|vegeta|sos\w* rybn\w*|pasta curry|harissa|erytr\w*|eryt\w*|odżywk\w*|odzywk\w*|zioł\w*|ziół|anyż\w*|papryczk\w*|chill?i\w*|listk\w* laurow\w*|liste\w* laurow\w*|prosz[e]?k\w* do pieczenia|sod\w*|aromat\w*|smalc\w* do smażenia|łoj\w*|łój|tłuszcz\w*|szałwi\w*|tymiank\w*|estragon\w*|lubczyk\w*|sos\w* balsamiczn\w*|spirulin\w*|matcha|gum\w* ksantan\w*|tapiok\w*|izolat\w*|przyda się|form\w* do (zapiekania|pieczenia)|tortownic\w*|gaz\w*|syfon\w*|nab(oje|oi)\w*|sitk\w*|ściereczk\w*)\b/);
+const PANTRY = pl(/\b(sól|soli|solą|pieprz\w*|przypraw\w*|majeran\w*|oregano|tymian\w*|bazyli\w* suszon\w*|suszon\w* bazyli\w*|kmin\w*|kumin\w*|curry|kurkum\w*|cynamon\w*|gałk\w* muszkat\w*|liś\w* laurow\w*|liści\w* laurow\w*|ziel\w* angielsk\w*|ziół|zioła prowansalsk\w*|chili|płatki chili|papryk\w* (słodk|wędzon|ostr|mielon|chili)\w*|(słodk|wędzon|ostr|mielon)\w* papryk\w*|czosn\w* (granulowan|suszon)\w*|imbir\w* mielon\w*|kolendr\w* mielon\w*|lubczyk\w*|rozmaryn\w*|estragon\w*|cząber\w*|jałow\w*|goździk\w*|kardamon\w*|wanili\w*|woda|wody|wodą|wrzątk\w*|lód|kostk\w* lodu|ocet\w*|octu|olej\w*|oliw(a|y|ą|ę)\b|oliwy z oliwek|bulion\w*|wywar\w*|rosoł\w*|kostk\w* rosoł\w*|mąk\w* ziemniaczan\w*|skrobi\w*|proszk\w* do pieczenia|sod\w* oczyszczon\w*|cukr\w* (puder|wanili|trzcin)\w*|cukier|cukru|ksylitol\w*|erytrytol\w*|sos\w* worcester\w*|tabasco|sriracha|natka? ?do dekoracji|żelatyn\w*|sezam\w* do posypania|maggi|vegeta|sos\w* rybn\w*|pasta curry|harissa|erytr\w*|eryt\w*|odżywk\w*|odzywk\w*|zioł\w*|ziół|anyż\w*|papryczk\w*|chill?i\w*|listk\w* laurow\w*|liste\w* laurow\w*|prosz[e]?k\w* do pieczenia|sod\w*|aromat\w*|smalc\w* do smażenia|łoj\w*|łój|tłuszcz\w*|szałwi\w*|tymiank\w*|estragon\w*|lubczyk\w*|sos\w* balsamiczn\w*|spirulin\w*|matcha|gum\w* ksantan\w*|tapiok\w*|izolat\w*|przyda się|form\w* do (zapiekania|pieczenia)|tortownic\w*|gaz\w*|syfon\w*|nab(oje|oi)\w*|sitk\w*|ściereczk\w*|srirach\w*|cząbr\w*|szafran\w*)\b/);
 
 const MAP_SRC = [
   [/mleczk\w* kokos|mleka kokos|mleko kokos/, 'mleczko'],
@@ -39,8 +39,8 @@ const MAP_SRC = [
   [/piersi?\w* z kurczak\w*|filet\w* z kurczak\w*|filet\w* z piersi|pierś\w*|piersi\b|polędwiczk\w* z kurczak/, 'piers'],
   [/udk\w*|udek|udziec\w* z kurczak|uda\b|ud z kurczak|podudzi\w*/, 'udka'],
   [/wątrób\w*/, 'watrobka'],
-  [/kacz\w*|gęś\w*|gęsi\w*|indyczk\w*|jagnię\w*|jagnięc\w*|dziczyzn\w*|sarnin\w*|cielęc\w*|królik\w*/, 'kaczka'],
-  [/skrzyd\w*|ćwiart\w*|kurczak\w*|kurczę\w*|tusz\w*|drobi\w*|drób/, 'kurczakCaly'],
+  [/\bkacz\w*|gęś\w*|gęsi\w*|indyczk\w*|jagnię\w*|jagnięc\w*|dziczyzn\w*|sarnin\w*|cielęc\w*|królik\w*/, 'kaczka'],
+  [/\bkur(a|y|ę|ą)\b|korpus\w* kurz\w*|skrzyd\w*|ćwiart\w*|kurczak\w*|kurczę\w*|tusz\w*|drobi\w*|drób/, 'kurczakCaly'],
   [/indyk\w*|indycz\w*/, 'indyk'],
   [/mięs\w* mielon\w*|mielon\w* mięs\w*|mielon\w* (wołow|wieprzow|indyk|drobiow)\w*|\bmielonego\b(?!.*papryk)/, 'mielone'],
   [/wołow\w*|antrykot\w*|rostbef\w*|szponder\w*|pręg\w* wołow/, 'wolowina'],
@@ -48,7 +48,7 @@ const MAP_SRC = [
   [/kiełbas\w*|chorizo|kabanos\w*|salami|kaszank\w*/, 'kielbasa'],
   [/parów\w*|frankfurter\w*/, 'parowki'],
   [/szynk\w*|polędwic\w* sopock|prosciutto|mortadel\w*|wędlin\w*/, 'szynka'],
-  [/wieprz\w*|karków\w*|schab\w*|łopatk\w*|żeberk\w*|golonk\w*|polędwiczk\w*|kark\w*|mięs\w*/, 'wieprzowina'],
+  [/wieprz\w*|karków\w*|schab\w*|łopatk\w*|żeber\w*|golonk\w*|polędwiczk\w*|kark\w*|mięs\w*/, 'wieprzowina'],
   [/łoso\w*/, 'losos'],
   [/tuńczyk\w*/, 'tunczyk'],
   [/śledź|śledzi\w*|matias\w*|anchois|sardyn\w*|szprot\w*/, 'sledz'],
@@ -190,11 +190,13 @@ function quantity(line, id) {
     return toUnit(g);
   }
   const num = firstNumber(line);
+  // Measures inside brackets are descriptions („plastry (o grubości 4 cm)”), and „w kostkę” is a cut, not a cube.
+  const bare = line.replace(/\([^)]*\)/g, ' ').replace(/\bw kostk\p{L}*/gu, ' ');
   for (const [re, val] of MEASURES) {
-    const mm = re.exec(line);
+    const mm = re.exec(bare);
     if (!mm) continue;
     // The number right before the measure („2 łyżki”, „pół szklanki”), not the first one in the line.
-    const before = line.slice(Math.max(0, mm.index - 25), mm.index).split(/ - |, /).pop();
+    const before = bare.slice(Math.max(0, mm.index - 25), mm.index).split(/ - |, /).pop();
     const near = lastNumber(before);
     // The number must sit next to the measure: „2 płaskie łyżki” yes, „6 połówek brzoskwiń z puszki” no.
     const gap = near ? before.slice(near.index + near.len).trim().split(/\s+/).filter(Boolean).length : 0;
@@ -245,7 +247,8 @@ function genericGrams(line) {
 }
 
 function classify(item, groupName, qtyFirst = false) {
-  const name = item.name.toLowerCase();
+  // „½ cebuli”, „2–3 łyżki” → „0.5 cebuli”, „2-3 łyżki”.
+  const name = item.name.toLowerCase().replace(/(\d)\s*([½¼¾⅓⅔])/g, '$1 $2').replace(/[½¼¾⅓⅔]/g, (f) => ({ '½': '0.5', '¼': '0.25', '¾': '0.75', '⅓': '0.33', '⅔': '0.67' })[f]).replace(/(\d)\s*[–—]\s*(\d)/g, '$1-$2');
   // Lidl writes „ząbek czosnku - 9 szt.”: the number must come before the measure, so the quantity goes first.
   const line = qtyFirst ? `${item.qty.toLowerCase()} ${name}` : `${name} ${item.qty.toLowerCase()}`;
   if (OPTIONAL.test(line) || /dekorac|do podania|opcjonal/i.test(groupName)) return { optional: true };
@@ -481,7 +484,17 @@ const SOURCES = {
     note: 'gerlach.pl/blog', qtyFirst: false,
     // Meal type from the blog's subcategory and tags; desserts, preserves and how-to posts have none.
     type: (r) => (/^jak\s/i.test(r.name) ? null : r.tags[0]),
-    servings,
+    // Most posts don't say how many servings, so without that a serving is ~550 kcal for lunch, ~400 for breakfast.
+    exactServes: true,
+    servings: (r, type, ing, pk) => {
+      const total = calcNutrition(ing, pk, 1).kcal;
+      const per = r.yield ? total / servings(r, type) : 0;
+      // A stated count is kept while it gives a believable serving.
+      if (per >= (type === 'obiad' ? 300 : 200) && per <= (type === 'obiad' ? 900 : 700)) return servings(r, type);
+      return Math.max(1, Math.min(8, Math.round(total / (type === 'obiad' ? 550 : 400))));
+    },
+    // Some posts list ingredients without amounts („filety z łososia”, „ziemniaki”); those can't make a shopping list.
+    minQtyShare: 0.6,
     // No nutrition on the blog, so it's calculated from ingredients.
     nutrition: (r, ing, mass, pm, pk, serves) => { const c = calcNutrition(ing, pk, serves); return { kcal: Math.round(c.kcal), protein: Math.round(c.protein) }; },
     tags: (r, ing) => dietFromIngredients(ing, r.ingredients.flatMap((g) => g.items.map((i) => i.name.toLowerCase())).join(' | ')),
@@ -566,12 +579,16 @@ for (const key of which.length ? which : Object.keys(SOURCES)) {
     if (!type) { reasons.type++; continue; }
     const ing = {};
     const missing = [];
-    let pantryMass = 0, pantryKcal = 0;
+    let pantryMass = 0, pantryKcal = 0, mapped = 0, withQty = 0;
     for (const g of r.ingredients) {
       for (const item of g.items) {
         const c = classify(item, g.name, S.qtyFirst);
         if (c.unknown) missing.push(c.unknown);
-        else if (c.id && c.qty > 0) ing[c.id] = (ing[c.id] || 0) + (S.bareCap ? capBare(item, c) : c.qty);
+        else if (c.id && c.qty > 0) {
+          ing[c.id] = (ing[c.id] || 0) + (S.bareCap ? capBare(item, c) : c.qty);
+          mapped++;
+          if (/\d|pół|½|¼|ćwierć/.test(`${item.name} ${item.qty}`)) withQty++;
+        }
         else if (c.pantry) { pantryMass += c.grams; pantryKcal += (c.grams * c.kcal100) / 100; }
       }
     }
@@ -580,7 +597,7 @@ for (const key of which.length ? which : Object.keys(SOURCES)) {
       for (const m of missing) unknown.set(m, (unknown.get(m) || 0) + 1);
       continue;
     }
-    if (Object.keys(ing).length < 2) { reasons.empty++; continue; }
+    if (Object.keys(ing).length < 2 || (S.minQtyShare && withQty < mapped * S.minQtyShare)) { reasons.empty++; continue; }
     if (!isMeal(r.name.trim(), ing, type)) { reasons.side++; continue; }
     for (const k of Object.keys(ing)) ing[k] = Math.round(ing[k] * 100) / 100;
 

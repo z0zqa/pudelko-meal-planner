@@ -2,7 +2,7 @@
 // Ingredients written as text („2 ząbki czosnku”, „pół szklanki mleka”) are mapped to products from
 // the price list in js/data.js. Recipes with an unrecognised ingredient are skipped so plan costs stay accurate.
 //
-// Run: node tools/build-recipes.mjs [ania|lidl] [--report] [--debug="Nazwa"]
+// Run: node tools/build-recipes.mjs [ania|lidl|ks|respo|ol|gl|ds] [--report] [--debug="Nazwa"]
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { INGREDIENTS } from '../js/data.js';
 
@@ -475,6 +475,16 @@ const SOURCES = {
       if (r.diets.includes('bez-glutenu') && !t.includes('bezgl')) t.push('bezgl');
       return t;
     },
+  },
+  gl: {
+    raw: 'data/gerlach-raw.json', out: 'js/recipes-gl.js', name: 'GL_RECIPES', prefix: 'gl-', site: 'gl',
+    note: 'gerlach.pl/blog', qtyFirst: false,
+    // Meal type from the blog's subcategory and tags; desserts, preserves and how-to posts have none.
+    type: (r) => (/^jak\s/i.test(r.name) ? null : r.tags[0]),
+    servings,
+    // No nutrition on the blog, so it's calculated from ingredients.
+    nutrition: (r, ing, mass, pm, pk, serves) => { const c = calcNutrition(ing, pk, serves); return { kcal: Math.round(c.kcal), protein: Math.round(c.protein) }; },
+    tags: (r, ing) => dietFromIngredients(ing, r.ingredients.flatMap((g) => g.items.map((i) => i.name.toLowerCase())).join(' | ')),
   },
   ds: {
     raw: 'data/doradcasmaku-raw.json', out: 'js/recipes-ds.js', name: 'DS_RECIPES', prefix: 'ds-', site: 'ds',

@@ -2,7 +2,7 @@
 const CACHE = 'pudelko-v43';
 const FILES = ['./', 'index.html', 'styles.css', 'js/app.js', 'js/planner.js', 'js/data.js', 'js/prices.js', 'manifest.webmanifest', 'icon.svg'];
 // Recipe packs may not exist, so their absence doesn't break installation.
-const PACKS = ['ania', 'lidl', 'ks', 'respo', 'ds', 'ol'].map((s) => `js/recipes-${s}.js`);
+const PACKS = ['ania', 'lidl', 'ks', 'respo', 'ds', 'ol', 'gl'].map((s) => `js/recipes-${s}.js`);
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => Promise.all([c.addAll(FILES), ...PACKS.map((f) => c.add(f).catch(() => {}))])));
